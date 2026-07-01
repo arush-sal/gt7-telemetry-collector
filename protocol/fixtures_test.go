@@ -6,10 +6,6 @@ import (
 	"testing"
 )
 
-// packetSize is the fixed GT7 "A" telemetry packet length (bytes), confirmed from real captures:
-// every datagram on the telemetry port was exactly this size.
-const packetSize = 296
-
 // readFixture loads an encrypted packet fixture from testdata by base name (e.g. "packet_00.bin").
 // Reuse this in decrypt/decode tests.
 func readFixture(t *testing.T, name string) []byte {
