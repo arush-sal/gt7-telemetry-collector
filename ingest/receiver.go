@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/arush-sal/gt7/backend/collector/protocol"
+	"github.com/arush-sal/garage/backend/collector/protocol"
 	"go.uber.org/zap"
 )
 

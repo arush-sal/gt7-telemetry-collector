@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	telemetryv1 "github.com/arush-sal/gt7/backend/gen/gt7/telemetry/v1"
+	telemetryv1 "github.com/arush-sal/garage/backend/gen/gt7/telemetry/v1"
 )
 
 // fakePub records published frames so tests can assert on them without gRPC.

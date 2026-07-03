@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	telemetryv1 "github.com/arush-sal/gt7/backend/gen/gt7/telemetry/v1"
+	telemetryv1 "github.com/arush-sal/garage/backend/gen/gt7/telemetry/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )

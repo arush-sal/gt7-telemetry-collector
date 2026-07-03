@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/arush-sal/gt7/backend/internal/app"
-	"github.com/arush-sal/gt7/backend/internal/config"
+	"github.com/arush-sal/garage/backend/internal/app"
+	"github.com/arush-sal/garage/backend/internal/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

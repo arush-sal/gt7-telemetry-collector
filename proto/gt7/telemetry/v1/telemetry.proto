@@ -5,7 +5,7 @@ package gt7.telemetry.v1;
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/arush-sal/gt7/backend/gen/gt7/telemetry/v1;telemetryv1";
+option go_package = "github.com/arush-sal/garage/backend/gen/gt7/telemetry/v1;telemetryv1";
 
 // Source distinguishes live telemetry from replayed captures, so downstream Personal-Best records
 // are not polluted by replay runs.

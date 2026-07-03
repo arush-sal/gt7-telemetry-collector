@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	telemetryv1 "github.com/arush-sal/gt7/backend/gen/gt7/telemetry/v1"
+	telemetryv1 "github.com/arush-sal/garage/backend/gen/gt7/telemetry/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"

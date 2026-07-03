@@ -968,7 +968,7 @@ const file_gt7_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\vSOURCE_LIVE\x10\x01\x12\x11\n" +
 	"\rSOURCE_REPLAY\x10\x022P\n" +
 	"\tTelemetry\x12C\n" +
-	"\x06Ingest\x12 .gt7.telemetry.v1.TelemetryFrame\x1a\x15.gt7.telemetry.v1.Ack(\x01BCZAgithub.com/arush-sal/gt7/backend/gen/gt7/telemetry/v1;telemetryv1b\x06proto3"
+	"\x06Ingest\x12 .gt7.telemetry.v1.TelemetryFrame\x1a\x15.gt7.telemetry.v1.Ack(\x01BFZDgithub.com/arush-sal/garage/backend/gen/gt7/telemetry/v1;telemetryv1b\x06proto3"
 
 var (
 	file_gt7_telemetry_v1_telemetry_proto_rawDescOnce sync.Once

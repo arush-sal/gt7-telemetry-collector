@@ -3,8 +3,8 @@ package telemetry
 import (
 	"time"
 
-	"github.com/arush-sal/gt7/backend/collector/protocol"
-	telemetryv1 "github.com/arush-sal/gt7/backend/gen/gt7/telemetry/v1"
+	"github.com/arush-sal/garage/backend/collector/protocol"
+	telemetryv1 "github.com/arush-sal/garage/backend/gen/gt7/telemetry/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
