@@ -36,3 +36,14 @@ func (d *Deduper) Accept(id uint32) (accept bool, reset bool) {
 	d.last = id
 	return true, true
 }
+
+// Gap reports whether accepting id would leave a hole after the last accepted PackageID (i.e. one
+// or more packets were lost). It is read-only and must be called before Accept, which updates the
+// last-seen id. Duplicates, reorders, and resets are not gaps.
+func (d *Deduper) Gap(id uint32) bool { return d.seen && id > d.last+1 }
+
+// NewDeduper returns a ready-to-use Deduper. The zero value is already valid; this constructor
+// exists for call-site clarity.
+func NewDeduper() Deduper {
+	return Deduper{}
+}

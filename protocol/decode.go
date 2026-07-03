@@ -145,3 +145,10 @@ func Decode(dec []byte) (GT7DData, error) {
 func tyreSpeed(omega, diameter float32) float32 {
 	return float32(math.Abs(float64(3.6 * diameter * omega)))
 }
+
+// PeekPackageID reads just the PackageID (little-endian uint32 at offPackageID) from a decrypted
+// packet, letting callers de-duplicate before paying for a full Decode. The packet must already be
+// Validate-d: PeekPackageID does not bounds-check beyond what u32 enforces.
+func PeekPackageID(dec []byte) uint32 {
+	return u32(dec, offPackageID)
+}

@@ -1,0 +1,142 @@
+syntax = "proto3";
+
+package gt7.telemetry.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/arush-sal/gt7/backend/gen/gt7/telemetry/v1;telemetryv1";
+
+// Source distinguishes live telemetry from replayed captures, so downstream Personal-Best records
+// are not polluted by replay runs.
+enum Source {
+  SOURCE_UNSPECIFIED = 0;
+  SOURCE_LIVE = 1;
+  SOURCE_REPLAY = 2;
+}
+
+// TelemetryFrame is one decoded GT7 telemetry sample plus the capture metadata the RTPS needs.
+// It is GT7-shaped for v1 (a near-mirror of the collector's decoded struct); the schema will be
+// generalized/refined in v2 when a second game exists. Integer widths widen to proto's int32/uint32
+// (proto has no int16/uint16/uint8). Lap/track times are google.protobuf.Duration and are left
+// unset (nil) when GT7 reports "no time yet", rather than encoding a -1 sentinel.
+message TelemetryFrame {
+  // --- Capture metadata (set by the collector, not the game) ---
+  google.protobuf.Timestamp recv_timestamp = 1; // wall-clock time the packet was received
+  uint64 sequence = 2;                           // collector-assigned monotonic frame counter
+  bool gap = 3;                                  // PackageID was non-contiguous before this frame
+  Source source = 4;                             // LIVE or REPLAY
+  uint32 schema_version = 5;                     // version of this schema the frame was produced with
+
+  // --- Identity & lap ---
+  uint32 package_id = 6;                         // GT7 monotonic packet counter (dedup key)
+  int32 car_id = 7;                              // in-game car model id
+  int32 current_lap = 8;
+  int32 total_laps = 9;
+  google.protobuf.Duration best_lap = 10;        // unset when no best lap yet
+  google.protobuf.Duration last_lap = 11;        // unset when no lap completed yet
+  int32 current_position = 12;
+  int32 total_positions = 13;
+  google.protobuf.Duration time_on_track = 14;
+
+  // --- Powertrain ---
+  float rpm = 15;
+  uint32 rpm_rev_warning = 16;
+  uint32 rpm_rev_limiter = 17;
+  float rpm_after_clutch = 18;
+  int32 estimated_top_speed = 19;
+  uint32 current_gear = 20;
+  uint32 suggested_gear = 21;
+  float clutch = 22;
+  float clutch_engaged = 23;
+  float boost = 24;
+
+  // --- Pedals (0-100) ---
+  float throttle = 25;
+  float brake = 26;
+
+  // --- Speed (km/h) ---
+  float car_speed = 27;
+
+  // --- Fuel ---
+  float fuel_capacity = 28;
+  float current_fuel = 29;
+
+  // --- Motion (world space) ---
+  float position_x = 30;
+  float position_y = 31;
+  float position_z = 32;
+  float velocity_x = 33;
+  float velocity_y = 34;
+  float velocity_z = 35;
+  float rotation_pitch = 36;
+  float rotation_yaw = 37;
+  float rotation_roll = 38;
+  float angular_velocity_x = 39;
+  float angular_velocity_y = 40;
+  float angular_velocity_z = 41;
+  float ride_height = 42; // mm
+
+  // --- Tyres (front-left, front-right, rear-left, rear-right) ---
+  float tyre_diameter_fl = 43;
+  float tyre_diameter_fr = 44;
+  float tyre_diameter_rl = 45;
+  float tyre_diameter_rr = 46;
+  float tyre_speed_fl = 47; // km/h
+  float tyre_speed_fr = 48;
+  float tyre_speed_rl = 49;
+  float tyre_speed_rr = 50;
+  float tyre_slip_ratio_fl = 51;
+  float tyre_slip_ratio_fr = 52;
+  float tyre_slip_ratio_rl = 53;
+  float tyre_slip_ratio_rr = 54;
+  float tyre_temp_fl = 55;
+  float tyre_temp_fr = 56;
+  float tyre_temp_rl = 57;
+  float tyre_temp_rr = 58;
+  float suspension_fl = 59;
+  float suspension_fr = 60;
+  float suspension_rl = 61;
+  float suspension_rr = 62;
+
+  // --- Temps & pressures ---
+  float oil_temp = 63;
+  float water_temp = 64;
+  float oil_pressure = 65;
+
+  // --- Gear ratios ---
+  float gear1 = 66;
+  float gear2 = 67;
+  float gear3 = 68;
+  float gear4 = 69;
+  float gear5 = 70;
+  float gear6 = 71;
+  float gear7 = 72;
+  float gear8 = 73;
+
+  // --- Status flags ---
+  bool in_race = 74;
+  bool is_paused = 75;
+  bool is_loading = 76;
+  bool is_in_gear = 77;
+  bool car_has_turbo = 78;
+  bool is_rev_limiter_flashing = 79;
+  bool is_handbrake_engaged = 80;
+  bool is_lights_on = 81;
+  bool is_low_beam_on = 82;
+  bool is_high_beam_on = 83;
+  bool is_asm_engaged = 84;
+  bool is_tcs_engaged = 85;
+}
+
+// Ack is returned once by the RTPS when the collector's telemetry stream ends.
+message Ack {
+  uint64 frames_received = 1;
+}
+
+// Telemetry is the ingest contract: the collector dials the RTPS and streams decoded frames.
+service Telemetry {
+  // Ingest receives a client-streamed sequence of telemetry frames and returns a summary Ack when
+  // the stream closes.
+  rpc Ingest(stream TelemetryFrame) returns (Ack);
+}

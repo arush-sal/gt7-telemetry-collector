@@ -2,10 +2,10 @@ package protocol
 
 import "testing"
 
-// TestDedup drives one Deduper through a realistic sequence — cold start, forward progress, a
+// TestAccept drives one Deduper through a realistic sequence — cold start, forward progress, a
 // duplicate, a small out-of-order packet, and a large backward jump — asserting accept/reset for
 // each. The cases are ordered and share state on purpose: they model a single packet stream.
-func TestDedup(t *testing.T) {
+func TestAccept(t *testing.T) {
 	tests := []struct {
 		name       string
 		n          uint32
@@ -28,5 +28,32 @@ func TestDedup(t *testing.T) {
 				t.Errorf("Dedup() %s error: want reset %t got %t", tt.name, tt.wantReset, reset)
 			}
 		})
+	}
+}
+
+func TestGap(t *testing.T) {
+	dd := &Deduper{}
+
+	// Nothing accepted yet: there is no previous id, so no gap regardless of the value.
+	if dd.Gap(10) {
+		t.Error("Gap on a fresh Deduper should be false")
+	}
+
+	// Establish state: last accepted PackageID is 10. Gap is read-only, so last stays 10 below.
+	dd.Accept(10)
+
+	tests := []struct {
+		name string
+		n    uint32
+		want bool
+	}{
+		{"contiguous", 11, false},            // 11 == last+1, no hole
+		{"gap", 15, true},                    // skipped 11..14
+		{"duplicate-or-backward", 10, false}, // not forward progress
+	}
+	for _, tt := range tests {
+		if got := dd.Gap(tt.n); got != tt.want {
+			t.Errorf("%s: Gap(%d) = %t, want %t", tt.name, tt.n, got, tt.want)
+		}
 	}
 }
