@@ -33,7 +33,7 @@ func f32(b []byte, offset int) float32 {
 	return math.Float32frombits(u32(b, offset))
 }
 
-// bit does bit things
+// bit reports whether bit n (0 = least-significant) of b is set.
 func bit(b byte, n uint) bool { return b&(1<<n) != 0 }
 
 func offsetCheck16(offset int, b int) {

@@ -1,6 +1,7 @@
 package ingest
 
 import (
+	"errors"
 	"sync/atomic"
 	"time"
 
@@ -27,8 +28,8 @@ type Pipeline struct {
 	pub   Publisher
 
 	seq     atomic.Uint64 // frames published (also the frame sequence number)
-	foreign atomic.Uint64 // decrypt/magic failures (not a GT7 packet)
-	short   atomic.Uint64 // packets too short to decode
+	foreign atomic.Uint64 // wrong-magic packets (foreign/corrupt, not a GT7 packet)
+	short   atomic.Uint64 // wrong-length packets (truncated or unexpected size)
 	stale   atomic.Uint64 // duplicates / small reorders dropped by dedup
 	resets  atomic.Uint64 // session-reset packets accepted
 	gaps    atomic.Uint64 // accepted packets preceded by a PackageID gap
@@ -51,8 +52,8 @@ func NewPipeline(raw rawsink.RawSink, pub Publisher) *Pipeline {
 	return &Pipeline{raw: raw, dedup: &dd, pub: pub}
 }
 
-// Handle processes one received packet: tee raw -> decrypt -> validate -> dedup -> decode -> map ->
-// publish. It never blocks and never returns an error; every rejection increments a counter.
+// Handle processes one received packet: tee raw -> decrypt -> dedup -> decode -> map -> publish.
+// It never blocks and never returns an error; every rejection increments a counter.
 func (p *Pipeline) Handle(payload []byte, recvTS time.Time) {
 	if p.raw != nil {
 		_ = p.raw.Write(recvTS, payload) // encrypted bytes, buffered; errors counted inside the sink
@@ -60,11 +61,14 @@ func (p *Pipeline) Handle(payload []byte, recvTS time.Time) {
 
 	dec, err := protocol.Decrypt(payload)
 	if err != nil {
-		p.foreign.Add(1)
-		return
-	}
-	if err := protocol.Validate(dec); err != nil {
-		p.short.Add(1)
+		// A wrong-length datagram is malformed/truncated (Short); anything else is a foreign or
+		// corrupt packet whose magic did not match (Foreign). Decrypt guarantees an exact-length
+		// packet on success, so PeekPackageID and Decode below are safe without a separate Validate.
+		if errors.Is(err, protocol.ErrPacketLength) {
+			p.short.Add(1)
+		} else {
+			p.foreign.Add(1)
+		}
 		return
 	}
 

@@ -2,10 +2,20 @@ package protocol
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"golang.org/x/crypto/salsa20"
 )
+
+// ErrPacketLength is returned by Decrypt when the input is not exactly packetSize bytes — too short
+// to decode, or an unexpected length for the fixed "A" packet format. Callers can distinguish this
+// from a foreign packet with errors.Is.
+var ErrPacketLength = errors.New("protocol: packet is not the expected length")
+
+// ErrBadMagic is returned by Decrypt when the decrypted packet lacks the GT7 magic sentinel: a
+// foreign or corrupt packet, or a wrong key/nonce.
+var ErrBadMagic = errors.New("protocol: decrypted packet has wrong magic")
 
 // salsaKey is the fixed 32-byte Salsa20 key shared by every GT7 packet (the first 32 bytes of a
 // known protocol string). It is declared at package scope so it is built exactly once at program
@@ -21,14 +31,14 @@ var salsaKey = [32]byte([]byte("Simulator Interface Packet GT7 ver 0.0")[:32])
 // ivMask, high word = IV), runs the stream cipher, and verifies the magic sentinel to confirm the
 // result is a genuine, correctly-decrypted GT7 packet.
 //
-// It returns an error, and never panics, on a packet too short to hold the IV, or when the decrypted
-// magic does not match (foreign/corrupt packet or wrong key/nonce). The input slice enc is not
-// mutated: the cipher reads enc and writes a freshly allocated output buffer.
+// The "A" packet is a fixed size, so Decrypt requires exactly packetSize bytes and never panics:
+// it returns ErrPacketLength for the wrong length and ErrBadMagic when the decrypted magic does not
+// match. The input slice enc is not mutated: the cipher reads enc and writes a fresh output buffer.
 func Decrypt(enc []byte) ([]byte, error) {
-	// Reject anything too short before indexing into it: a malformed packet cannot be decoded, and
-	// this guard is what keeps the IV slice below from panicking.
-	if len(enc) < packetSize {
-		return nil, fmt.Errorf("malformed packet: expected %d bytes, got %d", packetSize, len(enc))
+	// The "A" format is exactly packetSize bytes. Reject any other length (short, or an unexpected
+	// longer variant) — and this guard is also what keeps the IV slice below from panicking.
+	if len(enc) != packetSize {
+		return nil, fmt.Errorf("%w: expected %d bytes, got %d", ErrPacketLength, packetSize, len(enc))
 	}
 
 	// Read the per-packet IV word (clear text at 0x40) and derive the two nonce words from it.
@@ -47,7 +57,7 @@ func Decrypt(enc []byte) ([]byte, error) {
 	// The magic must reappear at offset 0, otherwise the key/nonce did not line up: not our packet.
 	magicCheck := binary.LittleEndian.Uint32(out[:4])
 	if magicCheck != magicNumber {
-		return nil, fmt.Errorf("decryption failed: want %#x magic number, got %#x", magicNumber, magicCheck)
+		return nil, fmt.Errorf("%w: want %#x, got %#x", ErrBadMagic, magicNumber, magicCheck)
 	}
 
 	return out, nil

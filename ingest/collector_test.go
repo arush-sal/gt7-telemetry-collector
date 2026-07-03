@@ -83,11 +83,28 @@ func TestPipelineDropsForeign(t *testing.T) {
 	pub := &fakePub{}
 	p := NewPipeline(nil, pub)
 
-	p.Handle(make([]byte, 296), time.Unix(0, 0)) // all zeros -> wrong magic after decrypt
+	p.Handle(make([]byte, 296), time.Unix(0, 0)) // correct length, all zeros -> wrong magic
 
 	c := p.Counters()
-	if c.Foreign != 1 {
-		t.Errorf("Foreign = %d, want 1", c.Foreign)
+	if c.Foreign != 1 || c.Short != 0 {
+		t.Errorf("Foreign=%d Short=%d, want Foreign=1 Short=0", c.Foreign, c.Short)
+	}
+	if len(pub.frames) != 0 {
+		t.Errorf("published %d frames, want 0", len(pub.frames))
+	}
+}
+
+// TestPipelineDropsShort feeds a wrong-length datagram; it must be counted Short (not Foreign),
+// since the failure is a length problem, not a foreign packet.
+func TestPipelineDropsShort(t *testing.T) {
+	pub := &fakePub{}
+	p := NewPipeline(nil, pub)
+
+	p.Handle(make([]byte, 100), time.Unix(0, 0)) // too short -> ErrPacketLength
+
+	c := p.Counters()
+	if c.Short != 1 || c.Foreign != 0 {
+		t.Errorf("Short=%d Foreign=%d, want Short=1 Foreign=0", c.Short, c.Foreign)
 	}
 	if len(pub.frames) != 0 {
 		t.Errorf("published %d frames, want 0", len(pub.frames))
