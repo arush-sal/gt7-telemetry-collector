@@ -43,6 +43,9 @@ func TestPipelineHappyPath(t *testing.T) {
 	if c.Published != 8 || len(pub.frames) != 8 {
 		t.Fatalf("published %d frames (counter %d), want 8", len(pub.frames), c.Published)
 	}
+	if c.Valid != 8 {
+		t.Errorf("Valid = %d, want 8", c.Valid)
+	}
 	if c.Foreign != 0 || c.Short != 0 || c.Stale != 0 || c.Resets != 0 {
 		t.Errorf("unexpected drops: %+v", c)
 	}
@@ -75,6 +78,9 @@ func TestPipelineDropsDuplicate(t *testing.T) {
 	if c.Stale != 1 {
 		t.Errorf("Stale = %d, want 1", c.Stale)
 	}
+	if c.Valid != 2 { // both decrypted OK; the duplicate is valid but dropped by dedup
+		t.Errorf("Valid = %d, want 2", c.Valid)
+	}
 }
 
 // TestPipelineDropsForeign feeds bytes that are not a valid GT7 packet; decryption fails the magic
@@ -88,6 +94,9 @@ func TestPipelineDropsForeign(t *testing.T) {
 	c := p.Counters()
 	if c.Foreign != 1 || c.Short != 0 {
 		t.Errorf("Foreign=%d Short=%d, want Foreign=1 Short=0", c.Foreign, c.Short)
+	}
+	if c.Valid != 0 {
+		t.Errorf("Valid = %d, want 0 (foreign packet)", c.Valid)
 	}
 	if len(pub.frames) != 0 {
 		t.Errorf("published %d frames, want 0", len(pub.frames))

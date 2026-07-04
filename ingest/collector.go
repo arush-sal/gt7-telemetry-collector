@@ -28,6 +28,7 @@ type Pipeline struct {
 	pub   Publisher
 
 	seq     atomic.Uint64 // frames published (also the frame sequence number)
+	valid   atomic.Uint64 // valid GT7 packets (decrypted with correct magic), before dedup
 	foreign atomic.Uint64 // wrong-magic packets (foreign/corrupt, not a GT7 packet)
 	short   atomic.Uint64 // wrong-length packets (truncated or unexpected size)
 	stale   atomic.Uint64 // duplicates / small reorders dropped by dedup
@@ -38,6 +39,7 @@ type Pipeline struct {
 // Counters is a snapshot of the pipeline's packet accounting.
 type Counters struct {
 	Published uint64
+	Valid     uint64
 	Foreign   uint64
 	Short     uint64
 	Stale     uint64
@@ -71,6 +73,7 @@ func (p *Pipeline) Handle(payload []byte, recvTS time.Time) {
 		}
 		return
 	}
+	p.valid.Add(1) // a genuine GT7 packet (correct magic/length), regardless of dedup outcome
 
 	id := protocol.PeekPackageID(dec) // peek before decoding (skip decode on stale packets)
 	gap := p.dedup.Gap(id)
@@ -108,6 +111,7 @@ func (p *Pipeline) Handle(payload []byte, recvTS time.Time) {
 func (p *Pipeline) Counters() Counters {
 	return Counters{
 		Published: p.seq.Load(),
+		Valid:     p.valid.Load(),
 		Foreign:   p.foreign.Load(),
 		Short:     p.short.Load(),
 		Stale:     p.stale.Load(),
