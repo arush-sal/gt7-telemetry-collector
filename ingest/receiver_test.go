@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync"
 	"testing"
 	"time"
 )
@@ -71,6 +72,64 @@ func TestReceiver(t *testing.T) {
 		if !errors.Is(err, context.Canceled) {
 			t.Errorf("Run returned %v, want context.Canceled", err)
 		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not return after cancel")
+	}
+}
+
+// TestReceiver_SetHeartbeatInterval checks that reconfiguring the heartbeat interval while Run is
+// active takes effect (heartbeats start arriving at roughly the new cadence) and that concurrent
+// calls to SetHeartbeatInterval from multiple goroutines are race-safe (run with -race).
+func TestReceiver_SetHeartbeatInterval(t *testing.T) {
+	hbConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("hb listen: %v", err)
+	}
+	defer func() { _ = hbConn.Close() }()
+	hbPort := hbConn.LocalAddr().(*net.UDPAddr).Port
+
+	handle := func(_ []byte, _ time.Time) {}
+
+	// Start with a long interval so the initial heartbeat-on-start doesn't mask the reconfigure.
+	r, err := NewReceiver(0, hbPort, "127.0.0.1", time.Hour, handle)
+	if err != nil {
+		t.Fatalf("NewReceiver: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- r.Run(ctx) }()
+
+	// Drain the immediate on-start heartbeat.
+	_ = hbConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	buf := make([]byte, 8)
+	if _, _, err := hbConn.ReadFromUDP(buf); err != nil {
+		t.Fatalf("initial heartbeat not received: %v", err)
+	}
+
+	// Concurrent SetHeartbeatInterval calls (race detector coverage) settling on a short interval.
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r.SetHeartbeatInterval(20 * time.Millisecond)
+		}()
+	}
+	wg.Wait()
+
+	// With the interval reconfigured to 20ms, the next heartbeat should arrive well within a
+	// generous bound — proving the loop picked up the new value instead of waiting on the
+	// original 1-hour timer.
+	_ = hbConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if _, _, err := hbConn.ReadFromUDP(buf); err != nil {
+		t.Fatalf("reconfigured heartbeat not received in time: %v", err)
+	}
+
+	cancel()
+	select {
+	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("Run did not return after cancel")
 	}
