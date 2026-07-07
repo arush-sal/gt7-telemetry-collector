@@ -83,3 +83,18 @@ func TestToCanonical(t *testing.T) {
 		t.Errorf("flags mismatch: inRace=%v asm=%v", f.InRace, f.IsAsmEngaged)
 	}
 }
+
+// TestToCanonicalCarName checks that the seam resolves car_id to a human-readable car_name, and
+// that an unmapped id becomes "Unknown" rather than an empty string.
+func TestToCanonicalCarName(t *testing.T) {
+	m := CaptureMeta{Source: telemetryv1.Source_SOURCE_LIVE}
+
+	// Known id: 104 has a unique base name, so its year is dropped.
+	if f := ToCanonical(protocol.GT7DData{CarID: 104}, m); f.CarName != "Nissan Sileighty" {
+		t.Errorf("CarName for id 104 = %q, want %q", f.CarName, "Nissan Sileighty")
+	}
+	// Unknown id maps to "Unknown", never blank.
+	if f := ToCanonical(protocol.GT7DData{CarID: -1}, m); f.CarName != "Unknown" {
+		t.Errorf("CarName for unknown id = %q, want %q", f.CarName, "Unknown")
+	}
+}

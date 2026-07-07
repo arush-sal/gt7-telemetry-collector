@@ -3,6 +3,7 @@ package telemetry
 import (
 	"time"
 
+	"github.com/arush-sal/garage/backend/collector/gt7data"
 	"github.com/arush-sal/garage/backend/collector/protocol"
 	telemetryv1 "github.com/arush-sal/garage/backend/gen/gt7/telemetry/v1"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -40,6 +41,7 @@ func ToCanonical(d protocol.GT7DData, m CaptureMeta) *telemetryv1.TelemetryFrame
 		// Identity & lap
 		PackageId:       d.PackageID,
 		CarId:           d.CarID,
+		CarName:         carName(d.CarID),
 		CurrentLap:      int32(d.CurrentLap),
 		TotalLaps:       int32(d.TotalLaps),
 		BestLap:         optDuration(d.BestLap),
@@ -135,6 +137,17 @@ func ToCanonical(d protocol.GT7DData, m CaptureMeta) *telemetryv1.TelemetryFrame
 		IsAsmEngaged:         d.IsASMEngaged,
 		IsTcsEngaged:         d.IsTCSEngaged,
 	}
+}
+
+// carName resolves a GT7 car id to its display name, falling back to "Unknown" for ids absent from
+// the generated table (a new DLC car not yet in carlist.csv, or 0 when no car is loaded). It is
+// resolved here at the seam so the game-agnostic frame carries a ready-to-display name and the RTPS
+// never needs GT7 car knowledge.
+func carName(id int32) string {
+	if name, ok := gt7data.CarName(id); ok {
+		return name
+	}
+	return "Unknown"
 }
 
 // optDuration returns a protobuf Duration for a lap/track time, or nil when GT7 reported no time

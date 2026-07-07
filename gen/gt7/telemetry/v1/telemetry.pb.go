@@ -90,6 +90,7 @@ type TelemetryFrame struct {
 	// --- Identity & lap ---
 	PackageId       uint32               `protobuf:"varint,6,opt,name=package_id,json=packageId,proto3" json:"package_id,omitempty"` // GT7 monotonic packet counter (dedup key)
 	CarId           int32                `protobuf:"varint,7,opt,name=car_id,json=carId,proto3" json:"car_id,omitempty"`             // in-game car model id
+	CarName         string               `protobuf:"bytes,86,opt,name=car_name,json=carName,proto3" json:"car_name,omitempty"`       // human-readable car name, resolved by the collector from car_id ("Unknown" if unmapped)
 	CurrentLap      int32                `protobuf:"varint,8,opt,name=current_lap,json=currentLap,proto3" json:"current_lap,omitempty"`
 	TotalLaps       int32                `protobuf:"varint,9,opt,name=total_laps,json=totalLaps,proto3" json:"total_laps,omitempty"`
 	BestLap         *durationpb.Duration `protobuf:"bytes,10,opt,name=best_lap,json=bestLap,proto3" json:"best_lap,omitempty"` // unset when no best lap yet
@@ -258,6 +259,13 @@ func (x *TelemetryFrame) GetCarId() int32 {
 		return x.CarId
 	}
 	return 0
+}
+
+func (x *TelemetryFrame) GetCarName() string {
+	if x != nil {
+		return x.CarName
+	}
+	return ""
 }
 
 func (x *TelemetryFrame) GetCurrentLap() int32 {
@@ -855,7 +863,7 @@ var File_gt7_telemetry_v1_telemetry_proto protoreflect.FileDescriptor
 
 const file_gt7_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\n" +
-	" gt7/telemetry/v1/telemetry.proto\x12\x10gt7.telemetry.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe4\x17\n" +
+	" gt7/telemetry/v1/telemetry.proto\x12\x10gt7.telemetry.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xff\x17\n" +
 	"\x0eTelemetryFrame\x12A\n" +
 	"\x0erecv_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\rrecvTimestamp\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x04R\bsequence\x12\x10\n" +
@@ -864,7 +872,8 @@ const file_gt7_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\x0eschema_version\x18\x05 \x01(\rR\rschemaVersion\x12\x1d\n" +
 	"\n" +
 	"package_id\x18\x06 \x01(\rR\tpackageId\x12\x15\n" +
-	"\x06car_id\x18\a \x01(\x05R\x05carId\x12\x1f\n" +
+	"\x06car_id\x18\a \x01(\x05R\x05carId\x12\x19\n" +
+	"\bcar_name\x18V \x01(\tR\acarName\x12\x1f\n" +
 	"\vcurrent_lap\x18\b \x01(\x05R\n" +
 	"currentLap\x12\x1d\n" +
 	"\n" +

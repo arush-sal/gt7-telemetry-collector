@@ -31,6 +31,7 @@ message TelemetryFrame {
   // --- Identity & lap ---
   uint32 package_id = 6;                         // GT7 monotonic packet counter (dedup key)
   int32 car_id = 7;                              // in-game car model id
+  string car_name = 86;                          // human-readable car name, resolved by the collector from car_id ("Unknown" if unmapped)
   int32 current_lap = 8;
   int32 total_laps = 9;
   google.protobuf.Duration best_lap = 10;        // unset when no best lap yet
