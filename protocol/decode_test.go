@@ -6,6 +6,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -67,10 +68,20 @@ func TestDecodeIdentity(t *testing.T) {
 
 // TestDecodeGolden locks the full decoded struct for every fixture against a committed snapshot.
 // Regenerate (after verifying the values are correct) with:  go test -run Golden -update
+// Note: format-C golden snapshots are deferred to a future iteration when Decode handles C fields.
 func TestDecodeGolden(t *testing.T) {
-	matches, err := filepath.Glob(filepath.Join("testdata", "packet_*.bin"))
+	// Glob all packet_*.bin and filter out the format-C prefix explicitly (format-C fixtures have
+	// no golden snapshots yet), rather than relying on a numeric-suffix pattern that would
+	// silently under-count a mis-named format-A fixture (e.g. packet_8.bin).
+	allMatches, err := filepath.Glob(filepath.Join("testdata", "packet_*.bin"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	var matches []string
+	for _, m := range allMatches {
+		if !strings.HasPrefix(filepath.Base(m), "packet_c_") {
+			matches = append(matches, m)
+		}
 	}
 	for _, m := range matches {
 		name := filepath.Base(m)

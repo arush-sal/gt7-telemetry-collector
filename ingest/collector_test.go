@@ -3,6 +3,7 @@ package ingest
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,9 +32,21 @@ func TestPipelineHappyPath(t *testing.T) {
 	pub := &fakePub{}
 	p := NewPipeline(nil, pub)
 
-	fixtures, err := filepath.Glob(filepath.Join("..", "protocol", "testdata", "packet_*.bin"))
-	if err != nil || len(fixtures) != 8 {
-		t.Fatalf("want 8 fixtures, got %d (err %v)", len(fixtures), err)
+	// Glob all packet_*.bin and filter out the format-C prefix explicitly, rather than relying on
+	// a numeric-suffix pattern that would silently under-count a mis-named format-A fixture (e.g.
+	// packet_8.bin).
+	allFixtures, err := filepath.Glob(filepath.Join("..", "protocol", "testdata", "packet_*.bin"))
+	if err != nil {
+		t.Fatalf("glob fixtures: %v", err)
+	}
+	var fixtures []string
+	for _, f := range allFixtures {
+		if !strings.HasPrefix(filepath.Base(f), "packet_c_") {
+			fixtures = append(fixtures, f)
+		}
+	}
+	if len(fixtures) != 8 {
+		t.Fatalf("want 8 fixtures, got %d", len(fixtures))
 	}
 	for i, f := range fixtures {
 		p.Handle(readFix(t, filepath.Base(f)), time.Unix(int64(i), 0))
@@ -58,6 +71,32 @@ func TestPipelineHappyPath(t *testing.T) {
 	}
 	if pub.frames[1].Gap != true {
 		t.Error("frame1 should be flagged as a gap")
+	}
+}
+
+// TestPipelineFormatC feeds the eight format-C fixtures (368-byte packets) through the pipeline.
+// Decrypt and Decode both operate on the shared 0x128-byte region common to formats A and C, so
+// the full decrypt -> decode -> map -> publish path should handle C identically to A now that C is
+// the collector's default wire format (see heartbeat.go). Like the format-A happy path, these
+// fixtures are sampled far apart with a monotonically increasing PackageID, so all 8 should publish.
+func TestPipelineFormatC(t *testing.T) {
+	pub := &fakePub{}
+	p := NewPipeline(nil, pub)
+
+	fixtures, err := filepath.Glob(filepath.Join("..", "protocol", "testdata", "packet_c_*.bin"))
+	if err != nil {
+		t.Fatalf("glob format-C fixtures: %v", err)
+	}
+	if len(fixtures) != 8 {
+		t.Fatalf("want 8 format-C fixtures, got %d", len(fixtures))
+	}
+	for i, f := range fixtures {
+		p.Handle(readFix(t, filepath.Base(f)), time.Unix(int64(i), 0))
+	}
+
+	c := p.Counters()
+	if c.Published != 8 || len(pub.frames) != 8 {
+		t.Fatalf("published %d frames (counter %d), want 8", len(pub.frames), c.Published)
 	}
 }
 

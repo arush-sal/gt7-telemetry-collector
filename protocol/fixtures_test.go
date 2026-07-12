@@ -3,6 +3,7 @@ package protocol
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -17,19 +18,44 @@ func readFixture(t *testing.T, name string) []byte {
 	return b
 }
 
-// TestFixturesPresent locks the fixture set: 8 encrypted packets, each the expected size.
+// TestFixturesPresent locks the fixture set: 8 format-A encrypted packets (packetSize bytes each)
+// and 8 format-C encrypted packets (368 bytes each, see packet_c_*.bin).
 func TestFixturesPresent(t *testing.T) {
-	matches, err := filepath.Glob(filepath.Join("testdata", "packet_*.bin"))
+	// Glob all packet_*.bin and filter out the format-C prefix explicitly, rather than relying on
+	// a numeric-suffix pattern that would silently under-count a mis-named format-A fixture (e.g.
+	// packet_8.bin).
+	allMatches, err := filepath.Glob(filepath.Join("testdata", "packet_*.bin"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(matches) != 8 {
-		t.Fatalf("want 8 fixtures, got %d: %v", len(matches), matches)
+	var aMatches []string
+	for _, m := range allMatches {
+		if !strings.HasPrefix(filepath.Base(m), "packet_c_") {
+			aMatches = append(aMatches, m)
+		}
 	}
-	for _, m := range matches {
+	if len(aMatches) != 8 {
+		t.Fatalf("want 8 format-A fixtures, got %d: %v", len(aMatches), aMatches)
+	}
+	for _, m := range aMatches {
 		b := readFixture(t, filepath.Base(m))
 		if len(b) != packetSize {
 			t.Errorf("%s: want %d bytes, got %d", m, packetSize, len(b))
+		}
+	}
+
+	cMatches, err := filepath.Glob(filepath.Join("testdata", "packet_c_*.bin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cMatches) != 8 {
+		t.Fatalf("want 8 format-C fixtures, got %d: %v", len(cMatches), cMatches)
+	}
+	const packetSizeC = 368
+	for _, m := range cMatches {
+		b := readFixture(t, filepath.Base(m))
+		if len(b) != packetSizeC {
+			t.Errorf("%s: want %d bytes, got %d", m, packetSizeC, len(b))
 		}
 	}
 }

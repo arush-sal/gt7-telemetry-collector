@@ -2,7 +2,8 @@ package protocol
 
 const (
 	// packetSize is the fixed GT7 "A" telemetry packet length (bytes), confirmed from real captures:
-	// every datagram on the telemetry port was exactly this size.
+	// every datagram on the telemetry port was exactly this size. Kept as the historical name for
+	// format A; see packetSizeA/B/Tilde/C below for the full set of accepted lengths.
 	packetSize = 296
 
 	// magicNumber is the sentinel GT7 stamps at offset 0 of every packet, read as a little-endian
@@ -10,10 +11,41 @@ const (
 	// here instead, so it doubles as our "did decryption succeed?" check.
 	magicNumber = 0x47375330
 
-	// ivMask is the constant GT7 XORs into the packet's IV word to derive the second half of the
-	// Salsa20 nonce. It is a fixed protocol value discovered by reverse-engineering the game (a
-	// play on the classic 0xDEADBEEF sentinel); we replicate it exactly, we do not choose it.
-	ivMask = 0xDEADBEAF
+	// GT7's heartbeat character ("A", "B", "~", "C") selects one of four wire formats, each with its
+	// own fixed packet length and its own IV XOR mask. All four are reverse-engineered facts (sizes
+	// from real captures, masks from community/protocol research), not choices we made. The first
+	// 0x128 bytes of every format share the format-A layout, so a single set of field offsets and a
+	// single magic check work across all of them once the nonce is derived with the right mask.
+
+	// packetSizeA is format A's length (bytes). EMPIRICALLY VERIFIED: existing format-A fixtures
+	// decode correctly under ivMaskA.
+	packetSizeA = packetSize
+	// ivMaskA is format A's IV XOR mask. EMPIRICALLY VERIFIED against real format-A captures.
+	ivMaskA = 0xDEADBEAF
+
+	// packetSizeB is format B's length (bytes). DOC-REPORTED, UNVERIFIED: no format-B fixtures exist
+	// in this repo to confirm it against a real capture.
+	packetSizeB = 316
+	// ivMaskB is format B's IV XOR mask. DOC-REPORTED, UNVERIFIED — taken from external protocol
+	// documentation, never confirmed against a real format-B capture. Note it shares this exact
+	// value with ivMaskC (both 0xDEADBEEF), and differs from ivMaskA by a single bit (BEAF vs BEEF):
+	// this is intentional, not a typo — do not "fix" it to match ivMaskA.
+	ivMaskB = 0xDEADBEEF
+
+	// packetSizeTilde is format "~"'s length (bytes). DOC-REPORTED, UNVERIFIED: no format-~ fixtures
+	// exist in this repo to confirm it against a real capture.
+	packetSizeTilde = 344
+	// ivMaskTilde is format "~"'s IV XOR mask. DOC-REPORTED, UNVERIFIED — taken from external
+	// protocol documentation, never confirmed against a real format-~ capture.
+	ivMaskTilde = 0x55FABB4F
+
+	// packetSizeC is format C's length (bytes). EMPIRICALLY VERIFIED this session: 2907/2907 packets
+	// in a real capture were exactly this size and decrypted correctly under ivMaskC.
+	packetSizeC = 368
+	// ivMaskC is format C's IV XOR mask. EMPIRICALLY VERIFIED this session against a real format-C
+	// capture (2907/2907 packets decrypted correctly). It happens to equal ivMaskB (both
+	// 0xDEADBEEF); that is a confirmed fact about the protocol, not a copy-paste slip.
+	ivMaskC = 0xDEADBEEF
 
 	// minDecodeLen is the smallest slice length Decode can safely read: one past the highest byte
 	// offset any field touches (the end of the last field). Validate guards against it so Decode

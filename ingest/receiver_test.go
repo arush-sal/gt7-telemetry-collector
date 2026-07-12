@@ -54,15 +54,15 @@ func TestReceiver(t *testing.T) {
 		t.Fatal("handler did not receive the datagram")
 	}
 
-	// Heartbeat "A" should arrive at the console socket.
+	// Heartbeat "C" should arrive at the console socket.
 	_ = hbConn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	buf := make([]byte, 8)
 	n, _, err := hbConn.ReadFromUDP(buf)
 	if err != nil {
 		t.Fatalf("heartbeat not received: %v", err)
 	}
-	if string(buf[:n]) != "A" {
-		t.Errorf("heartbeat = %q, want \"A\"", buf[:n])
+	if string(buf[:n]) != "C" {
+		t.Errorf("heartbeat = %q, want \"C\"", buf[:n])
 	}
 
 	// Shutdown: cancel must unblock ReadFromUDP and Run must return promptly.
