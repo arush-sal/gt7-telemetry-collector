@@ -128,6 +128,32 @@ message TelemetryFrame {
   bool is_high_beam_on = 83;
   bool is_asm_engaged = 84;
   bool is_tcs_engaged = 85;
+
+  // --- Format-C tail (reverse-engineered; see vault provenance for confidence methodology and
+  // code-table sources). Per-field confidence noted below: CONFIRMED = matched against ground
+  // truth or a known real-world constant; unconfirmed = plausible/consistent but not
+  // independently verified; unknown = meaning not identified at all. ---
+  float wheel_rotation = 87;                        // rad; unconfirmed (read exactly pi during peak steering, possibly coincidental)
+  float steering_angular_velocity = 88;              // rad/s; unconfirmed
+  float sway = 89;                                   // X-axis acceleration; unconfirmed
+  float heave = 90;                                  // Y-axis acceleration; unconfirmed
+  float surge = 91;                                  // Z-axis acceleration; unconfirmed
+  uint32 throttle_filtered = 92;                     // 0-255 (uint8 widened); CONFIRMED, tracks throttle trace
+  uint32 brake_filtered = 93;                        // 0-255 (uint8 widened); unconfirmed, constant 0 in captures to date
+  uint32 unknown_u8_13e = 94;                        // uint8 widened; unknown
+  uint32 unknown_u8_13f = 95;                        // uint8 widened; unknown
+  float torque_vector_fl = 96;                       // per-wheel drive/brake torque, +drive/-brake*regen; unconfirmed
+  float torque_vector_fr = 97;                       // unconfirmed
+  float torque_vector_rl = 98;                       // unconfirmed
+  float torque_vector_rr = 99;                        // unconfirmed
+  float energy_recovery = 100;                       // battery regen; unconfirmed, constant 0 (non-hybrid) in captures to date
+  float unknown_f32_154 = 101;                       // unknown/under-research; varies with no identified correlate
+  string surface_type = 102;                         // 4-char material code, order FL,FR,RL,RR (T=tarmac,C=curb,D=dirt,G=grass,S=sand,s=snow); CONFIRMED
+  int32 current_lap_time_ms = 103;                   // ms, raw on-screen lap clock (distinct from the derived current_lap_time_ns); CONFIRMED
+  float wheel_steering_angle_front_left = 104;       // rad, front wheels only; CONFIRMED
+  float wheel_steering_angle_front_right = 105;      // rad, front wheels only; CONFIRMED
+  float wheel_base = 106;                            // m; CONFIRMED against a known real-world wheelbase
+  string car_category = 107;                         // ASCII category code, trimmed at first NUL (e.g. "GRN"); CONFIRMED
 }
 
 // Ack is returned once by the RTPS when the collector's telemetry stream ends.

@@ -178,8 +178,33 @@ type TelemetryFrame struct {
 	IsHighBeamOn         bool `protobuf:"varint,83,opt,name=is_high_beam_on,json=isHighBeamOn,proto3" json:"is_high_beam_on,omitempty"`
 	IsAsmEngaged         bool `protobuf:"varint,84,opt,name=is_asm_engaged,json=isAsmEngaged,proto3" json:"is_asm_engaged,omitempty"`
 	IsTcsEngaged         bool `protobuf:"varint,85,opt,name=is_tcs_engaged,json=isTcsEngaged,proto3" json:"is_tcs_engaged,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// --- Format-C tail (reverse-engineered; see vault provenance for confidence methodology and
+	// code-table sources). Per-field confidence noted below: CONFIRMED = matched against ground
+	// truth or a known real-world constant; unconfirmed = plausible/consistent but not
+	// independently verified; unknown = meaning not identified at all. ---
+	WheelRotation                float32 `protobuf:"fixed32,87,opt,name=wheel_rotation,json=wheelRotation,proto3" json:"wheel_rotation,omitempty"`                                                     // rad; unconfirmed (read exactly pi during peak steering, possibly coincidental)
+	SteeringAngularVelocity      float32 `protobuf:"fixed32,88,opt,name=steering_angular_velocity,json=steeringAngularVelocity,proto3" json:"steering_angular_velocity,omitempty"`                     // rad/s; unconfirmed
+	Sway                         float32 `protobuf:"fixed32,89,opt,name=sway,proto3" json:"sway,omitempty"`                                                                                            // X-axis acceleration; unconfirmed
+	Heave                        float32 `protobuf:"fixed32,90,opt,name=heave,proto3" json:"heave,omitempty"`                                                                                          // Y-axis acceleration; unconfirmed
+	Surge                        float32 `protobuf:"fixed32,91,opt,name=surge,proto3" json:"surge,omitempty"`                                                                                          // Z-axis acceleration; unconfirmed
+	ThrottleFiltered             uint32  `protobuf:"varint,92,opt,name=throttle_filtered,json=throttleFiltered,proto3" json:"throttle_filtered,omitempty"`                                             // 0-255 (uint8 widened); CONFIRMED, tracks throttle trace
+	BrakeFiltered                uint32  `protobuf:"varint,93,opt,name=brake_filtered,json=brakeFiltered,proto3" json:"brake_filtered,omitempty"`                                                      // 0-255 (uint8 widened); unconfirmed, constant 0 in captures to date
+	UnknownU8_13E                uint32  `protobuf:"varint,94,opt,name=unknown_u8_13e,json=unknownU813e,proto3" json:"unknown_u8_13e,omitempty"`                                                       // uint8 widened; unknown
+	UnknownU8_13F                uint32  `protobuf:"varint,95,opt,name=unknown_u8_13f,json=unknownU813f,proto3" json:"unknown_u8_13f,omitempty"`                                                       // uint8 widened; unknown
+	TorqueVectorFl               float32 `protobuf:"fixed32,96,opt,name=torque_vector_fl,json=torqueVectorFl,proto3" json:"torque_vector_fl,omitempty"`                                                // per-wheel drive/brake torque, +drive/-brake*regen; unconfirmed
+	TorqueVectorFr               float32 `protobuf:"fixed32,97,opt,name=torque_vector_fr,json=torqueVectorFr,proto3" json:"torque_vector_fr,omitempty"`                                                // unconfirmed
+	TorqueVectorRl               float32 `protobuf:"fixed32,98,opt,name=torque_vector_rl,json=torqueVectorRl,proto3" json:"torque_vector_rl,omitempty"`                                                // unconfirmed
+	TorqueVectorRr               float32 `protobuf:"fixed32,99,opt,name=torque_vector_rr,json=torqueVectorRr,proto3" json:"torque_vector_rr,omitempty"`                                                // unconfirmed
+	EnergyRecovery               float32 `protobuf:"fixed32,100,opt,name=energy_recovery,json=energyRecovery,proto3" json:"energy_recovery,omitempty"`                                                 // battery regen; unconfirmed, constant 0 (non-hybrid) in captures to date
+	UnknownF32_154               float32 `protobuf:"fixed32,101,opt,name=unknown_f32_154,json=unknownF32154,proto3" json:"unknown_f32_154,omitempty"`                                                  // unknown/under-research; varies with no identified correlate
+	SurfaceType                  string  `protobuf:"bytes,102,opt,name=surface_type,json=surfaceType,proto3" json:"surface_type,omitempty"`                                                            // 4-char material code, order FL,FR,RL,RR (T=tarmac,C=curb,D=dirt,G=grass,S=sand,s=snow); CONFIRMED
+	CurrentLapTimeMs             int32   `protobuf:"varint,103,opt,name=current_lap_time_ms,json=currentLapTimeMs,proto3" json:"current_lap_time_ms,omitempty"`                                        // ms, raw on-screen lap clock (distinct from the derived current_lap_time_ns); CONFIRMED
+	WheelSteeringAngleFrontLeft  float32 `protobuf:"fixed32,104,opt,name=wheel_steering_angle_front_left,json=wheelSteeringAngleFrontLeft,proto3" json:"wheel_steering_angle_front_left,omitempty"`    // rad, front wheels only; CONFIRMED
+	WheelSteeringAngleFrontRight float32 `protobuf:"fixed32,105,opt,name=wheel_steering_angle_front_right,json=wheelSteeringAngleFrontRight,proto3" json:"wheel_steering_angle_front_right,omitempty"` // rad, front wheels only; CONFIRMED
+	WheelBase                    float32 `protobuf:"fixed32,106,opt,name=wheel_base,json=wheelBase,proto3" json:"wheel_base,omitempty"`                                                                // m; CONFIRMED against a known real-world wheelbase
+	CarCategory                  string  `protobuf:"bytes,107,opt,name=car_category,json=carCategory,proto3" json:"car_category,omitempty"`                                                            // ASCII category code, trimmed at first NUL (e.g. "GRN"); CONFIRMED
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
 }
 
 func (x *TelemetryFrame) Reset() {
@@ -814,6 +839,153 @@ func (x *TelemetryFrame) GetIsTcsEngaged() bool {
 	return false
 }
 
+func (x *TelemetryFrame) GetWheelRotation() float32 {
+	if x != nil {
+		return x.WheelRotation
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetSteeringAngularVelocity() float32 {
+	if x != nil {
+		return x.SteeringAngularVelocity
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetSway() float32 {
+	if x != nil {
+		return x.Sway
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetHeave() float32 {
+	if x != nil {
+		return x.Heave
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetSurge() float32 {
+	if x != nil {
+		return x.Surge
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetThrottleFiltered() uint32 {
+	if x != nil {
+		return x.ThrottleFiltered
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetBrakeFiltered() uint32 {
+	if x != nil {
+		return x.BrakeFiltered
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetUnknownU8_13E() uint32 {
+	if x != nil {
+		return x.UnknownU8_13E
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetUnknownU8_13F() uint32 {
+	if x != nil {
+		return x.UnknownU8_13F
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetTorqueVectorFl() float32 {
+	if x != nil {
+		return x.TorqueVectorFl
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetTorqueVectorFr() float32 {
+	if x != nil {
+		return x.TorqueVectorFr
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetTorqueVectorRl() float32 {
+	if x != nil {
+		return x.TorqueVectorRl
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetTorqueVectorRr() float32 {
+	if x != nil {
+		return x.TorqueVectorRr
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetEnergyRecovery() float32 {
+	if x != nil {
+		return x.EnergyRecovery
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetUnknownF32_154() float32 {
+	if x != nil {
+		return x.UnknownF32_154
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetSurfaceType() string {
+	if x != nil {
+		return x.SurfaceType
+	}
+	return ""
+}
+
+func (x *TelemetryFrame) GetCurrentLapTimeMs() int32 {
+	if x != nil {
+		return x.CurrentLapTimeMs
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetWheelSteeringAngleFrontLeft() float32 {
+	if x != nil {
+		return x.WheelSteeringAngleFrontLeft
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetWheelSteeringAngleFrontRight() float32 {
+	if x != nil {
+		return x.WheelSteeringAngleFrontRight
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetWheelBase() float32 {
+	if x != nil {
+		return x.WheelBase
+	}
+	return 0
+}
+
+func (x *TelemetryFrame) GetCarCategory() string {
+	if x != nil {
+		return x.CarCategory
+	}
+	return ""
+}
+
 // Ack is returned once by the RTPS when the collector's telemetry stream ends.
 type Ack struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -863,7 +1035,7 @@ var File_gt7_telemetry_v1_telemetry_proto protoreflect.FileDescriptor
 
 const file_gt7_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\n" +
-	" gt7/telemetry/v1/telemetry.proto\x12\x10gt7.telemetry.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xff\x17\n" +
+	" gt7/telemetry/v1/telemetry.proto\x12\x10gt7.telemetry.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdd\x1e\n" +
 	"\x0eTelemetryFrame\x12A\n" +
 	"\x0erecv_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\rrecvTimestamp\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x04R\bsequence\x12\x10\n" +
@@ -969,7 +1141,29 @@ const file_gt7_telemetry_v1_telemetry_proto_rawDesc = "" +
 	"\x0eis_low_beam_on\x18R \x01(\bR\visLowBeamOn\x12%\n" +
 	"\x0fis_high_beam_on\x18S \x01(\bR\fisHighBeamOn\x12$\n" +
 	"\x0eis_asm_engaged\x18T \x01(\bR\fisAsmEngaged\x12$\n" +
-	"\x0eis_tcs_engaged\x18U \x01(\bR\fisTcsEngaged\".\n" +
+	"\x0eis_tcs_engaged\x18U \x01(\bR\fisTcsEngaged\x12%\n" +
+	"\x0ewheel_rotation\x18W \x01(\x02R\rwheelRotation\x12:\n" +
+	"\x19steering_angular_velocity\x18X \x01(\x02R\x17steeringAngularVelocity\x12\x12\n" +
+	"\x04sway\x18Y \x01(\x02R\x04sway\x12\x14\n" +
+	"\x05heave\x18Z \x01(\x02R\x05heave\x12\x14\n" +
+	"\x05surge\x18[ \x01(\x02R\x05surge\x12+\n" +
+	"\x11throttle_filtered\x18\\ \x01(\rR\x10throttleFiltered\x12%\n" +
+	"\x0ebrake_filtered\x18] \x01(\rR\rbrakeFiltered\x12$\n" +
+	"\x0eunknown_u8_13e\x18^ \x01(\rR\funknownU813e\x12$\n" +
+	"\x0eunknown_u8_13f\x18_ \x01(\rR\funknownU813f\x12(\n" +
+	"\x10torque_vector_fl\x18` \x01(\x02R\x0etorqueVectorFl\x12(\n" +
+	"\x10torque_vector_fr\x18a \x01(\x02R\x0etorqueVectorFr\x12(\n" +
+	"\x10torque_vector_rl\x18b \x01(\x02R\x0etorqueVectorRl\x12(\n" +
+	"\x10torque_vector_rr\x18c \x01(\x02R\x0etorqueVectorRr\x12'\n" +
+	"\x0fenergy_recovery\x18d \x01(\x02R\x0eenergyRecovery\x12&\n" +
+	"\x0funknown_f32_154\x18e \x01(\x02R\runknownF32154\x12!\n" +
+	"\fsurface_type\x18f \x01(\tR\vsurfaceType\x12-\n" +
+	"\x13current_lap_time_ms\x18g \x01(\x05R\x10currentLapTimeMs\x12D\n" +
+	"\x1fwheel_steering_angle_front_left\x18h \x01(\x02R\x1bwheelSteeringAngleFrontLeft\x12F\n" +
+	" wheel_steering_angle_front_right\x18i \x01(\x02R\x1cwheelSteeringAngleFrontRight\x12\x1d\n" +
+	"\n" +
+	"wheel_base\x18j \x01(\x02R\twheelBase\x12!\n" +
+	"\fcar_category\x18k \x01(\tR\vcarCategory\".\n" +
 	"\x03Ack\x12'\n" +
 	"\x0fframes_received\x18\x01 \x01(\x04R\x0eframesReceived*D\n" +
 	"\x06Source\x12\x16\n" +

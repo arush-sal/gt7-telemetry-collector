@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"strings"
 	"time"
 
 	"github.com/arush-sal/garage/backend/collector/gt7data"
@@ -136,7 +137,40 @@ func ToCanonical(d protocol.GT7DData, m CaptureMeta) *telemetryv1.TelemetryFrame
 		IsHighBeamOn:         d.IsHighBeamOn,
 		IsAsmEngaged:         d.IsASMEngaged,
 		IsTcsEngaged:         d.IsTCSEngaged,
+
+		// Format-C tail
+		WheelRotation:                d.WheelRotation,
+		SteeringAngularVelocity:      d.SteeringAngularVelocity,
+		Sway:                         d.Sway,
+		Heave:                        d.Heave,
+		Surge:                        d.Surge,
+		ThrottleFiltered:             uint32(d.ThrottleFiltered),
+		BrakeFiltered:                uint32(d.BrakeFiltered),
+		UnknownU8_13E:                uint32(d.UnknownU8_13E),
+		UnknownU8_13F:                uint32(d.UnknownU8_13F),
+		TorqueVectorFl:               d.TorqueVectors[0],
+		TorqueVectorFr:               d.TorqueVectors[1],
+		TorqueVectorRl:               d.TorqueVectors[2],
+		TorqueVectorRr:               d.TorqueVectors[3],
+		EnergyRecovery:               d.EnergyRecovery,
+		UnknownF32_154:               d.UnknownF32_154,
+		SurfaceType:                  string(d.SurfaceType[:]),
+		CurrentLapTimeMs:             d.CurrentLapTimeMs,
+		WheelSteeringAngleFrontLeft:  d.WheelSteeringAngle[0],
+		WheelSteeringAngleFrontRight: d.WheelSteeringAngle[1],
+		WheelBase:                    d.WheelBase,
+		CarCategory:                  carCategory(d.CarCategory),
 	}
+}
+
+// carCategory converts the raw null-terminated ASCII category code into a Go string, trimming at
+// the first NUL byte (or the full array if it never appears) so the wire value carries only the
+// printable code (e.g. "GRN"), not embedded NUL padding.
+func carCategory(raw [4]byte) string {
+	if i := strings.IndexByte(string(raw[:]), 0); i >= 0 {
+		return string(raw[:i])
+	}
+	return string(raw[:])
 }
 
 // carName resolves a GT7 car id to its display name, falling back to "Unknown" for ids absent from

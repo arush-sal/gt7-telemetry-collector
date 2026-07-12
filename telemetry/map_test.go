@@ -32,6 +32,25 @@ func TestToCanonical(t *testing.T) {
 		InRace:            true,
 		IsASMEngaged:      true,
 		Gear1:             3.5,
+
+		// Format-C tail
+		WheelRotation:           1.5,
+		SteeringAngularVelocity: 0.25,
+		Sway:                    0.1,
+		Heave:                   0.2,
+		Surge:                   0.3,
+		ThrottleFiltered:        99, // uint8 -> uint32
+		BrakeFiltered:           88, // uint8 -> uint32
+		UnknownU8_13E:           77, // uint8 -> uint32
+		UnknownU8_13F:           66, // uint8 -> uint32
+		TorqueVectors:           [4]float32{11, 22, 33, 44},
+		EnergyRecovery:          5.5,
+		UnknownF32_154:          6.6,
+		SurfaceType:             [4]byte{'T', 'C', 'D', 'G'},
+		CurrentLapTimeMs:        123456,
+		WheelSteeringAngle:      [2]float32{0.05, -0.05},
+		WheelBase:               2.5,
+		CarCategory:             [4]byte{'G', 'R', 'N', 0},
 	}
 	m := CaptureMeta{RecvTime: now, Sequence: 7, Gap: true, Source: telemetryv1.Source_SOURCE_LIVE}
 
@@ -81,6 +100,46 @@ func TestToCanonical(t *testing.T) {
 	// Flags, including the ASM acronym re-cased to Asm in the generated field
 	if !f.InRace || !f.IsAsmEngaged {
 		t.Errorf("flags mismatch: inRace=%v asm=%v", f.InRace, f.IsAsmEngaged)
+	}
+
+	// Format-C tail: float passthrough
+	if f.WheelRotation != 1.5 || f.SteeringAngularVelocity != 0.25 || f.Sway != 0.1 || f.Heave != 0.2 || f.Surge != 0.3 {
+		t.Errorf("format-C motion floats mismatch: wheelRotation=%v steerAngVel=%v sway=%v heave=%v surge=%v",
+			f.WheelRotation, f.SteeringAngularVelocity, f.Sway, f.Heave, f.Surge)
+	}
+
+	// Format-C tail: uint8 -> uint32 widening
+	if f.ThrottleFiltered != 99 || f.BrakeFiltered != 88 || f.UnknownU8_13E != 77 || f.UnknownU8_13F != 66 {
+		t.Errorf("format-C uint8->uint32 wrong: throttleFiltered=%d brakeFiltered=%d u13e=%d u13f=%d",
+			f.ThrottleFiltered, f.BrakeFiltered, f.UnknownU8_13E, f.UnknownU8_13F)
+	}
+
+	// Format-C tail: per-wheel torque vectors (FL,FR,RL,RR)
+	if f.TorqueVectorFl != 11 || f.TorqueVectorFr != 22 || f.TorqueVectorRl != 33 || f.TorqueVectorRr != 44 {
+		t.Errorf("torque vector mismatch: fl=%v fr=%v rl=%v rr=%v", f.TorqueVectorFl, f.TorqueVectorFr, f.TorqueVectorRl, f.TorqueVectorRr)
+	}
+
+	// Format-C tail: remaining floats, raw lap time, and wheelbase
+	if f.EnergyRecovery != 5.5 || f.UnknownF32_154 != 6.6 {
+		t.Errorf("format-C misc floats mismatch: energyRecovery=%v unknownF32154=%v", f.EnergyRecovery, f.UnknownF32_154)
+	}
+	if f.CurrentLapTimeMs != 123456 {
+		t.Errorf("CurrentLapTimeMs = %d, want 123456", f.CurrentLapTimeMs)
+	}
+	if f.WheelSteeringAngleFrontLeft != 0.05 || f.WheelSteeringAngleFrontRight != -0.05 {
+		t.Errorf("wheel steering angle mismatch: left=%v right=%v", f.WheelSteeringAngleFrontLeft, f.WheelSteeringAngleFrontRight)
+	}
+	if f.WheelBase != 2.5 {
+		t.Errorf("WheelBase = %v, want 2.5", f.WheelBase)
+	}
+
+	// Format-C tail: SurfaceType is a raw 4-char string (no NUL trimming), CarCategory is trimmed
+	// at the first NUL byte.
+	if f.SurfaceType != "TCDG" {
+		t.Errorf("SurfaceType = %q, want %q", f.SurfaceType, "TCDG")
+	}
+	if f.CarCategory != "GRN" {
+		t.Errorf("CarCategory = %q, want %q", f.CarCategory, "GRN")
 	}
 }
 
