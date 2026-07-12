@@ -137,6 +137,48 @@ func Decode(dec []byte) (GT7DData, error) {
 		d.TyreSlipRatioRR = d.TyreSpeedRR / d.CarSpeed
 	}
 
+	// Format-C tail (0x128..0x170): only present in the 368-byte format-C packet. A format-A
+	// packet (296 bytes) already passed Validate (which only requires minDecodeLen == 0x128), so
+	// dec is too short to hold these fields — reading them unconditionally would panic. Gate the
+	// read on the full format-C length instead of on Validate, keeping the two concerns separate:
+	// Validate answers "can Decode run at all?", this guard answers "does this packet also carry
+	// the C tail?". Leaving the fields at their zero value for format A is intentional, not a bug.
+	if len(dec) >= packetSizeC {
+		d.WheelRotation = f32(dec, offWheelRotation)
+		d.SteeringAngularVelocity = f32(dec, offSteeringAngularVelocity)
+		d.Sway = f32(dec, offSway)
+		d.Heave = f32(dec, offHeave)
+		d.Surge = f32(dec, offSurge)
+
+		d.ThrottleFiltered = dec[offThrottleFiltered]
+		d.BrakeFiltered = dec[offBrakeFiltered]
+		d.UnknownU8_13E = dec[offUnknownU8_13E]
+		d.UnknownU8_13F = dec[offUnknownU8_13F]
+
+		d.TorqueVectors = [4]float32{
+			f32(dec, offTorqueVectorFL),
+			f32(dec, offTorqueVectorFR),
+			f32(dec, offTorqueVectorRL),
+			f32(dec, offTorqueVectorRR),
+		}
+
+		d.EnergyRecovery = f32(dec, offEnergyRecovery)
+		d.UnknownF32_154 = f32(dec, offUnknownF32_154)
+
+		copy(d.SurfaceType[:], dec[offSurfaceType:offSurfaceType+4])
+
+		d.CurrentLapTimeMs = i32(dec, offCurrentLapTimeMs)
+
+		d.WheelSteeringAngle = [2]float32{
+			f32(dec, offWheelSteeringAngleL),
+			f32(dec, offWheelSteeringAngleR),
+		}
+
+		d.WheelBase = f32(dec, offWheelBase)
+
+		copy(d.CarCategory[:], dec[offCarCategory:offCarCategory+4])
+	}
+
 	return d, nil
 }
 

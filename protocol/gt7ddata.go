@@ -78,4 +78,44 @@ type GT7DData struct {
 	IsTCSEngaged bool
 	// bits 12-15: meaning unknown (reverse-engineering gap; kept for completeness)
 	UnknownFlag12, UnknownFlag13, UnknownFlag14, UnknownFlag15 bool
+
+	// Format-C tail (0x128..0x170). Only populated when Decode is given a full-length format-C
+	// packet (368 bytes); for format-A packets (296 bytes) these all stay at their zero value —
+	// see Decode's format-length guard. Confidence/provenance for each field's offset lives as a
+	// comment on the matching offXxx constant in constants.go; it is not repeated here.
+	WheelRotation           float32 // rad
+	SteeringAngularVelocity float32 // rad/s
+	Sway                    float32 // X-axis acceleration
+	Heave                   float32 // Y-axis acceleration
+	Surge                   float32 // Z-axis acceleration
+
+	ThrottleFiltered uint8 // 0-255
+	BrakeFiltered    uint8 // 0-255; UNCONFIRMED, see offBrakeFiltered
+	UnknownU8_13E    uint8 // UNKNOWN, see offUnknownU8_13E
+	UnknownU8_13F    uint8 // UNKNOWN, see offUnknownU8_13F
+
+	// TorqueVectors: per-wheel drive/brake torque (FL,FR,RL,RR), +drive/-brake·regen. UNCONFIRMED,
+	// see offTorqueVector{FL,FR,RL,RR}.
+	TorqueVectors [4]float32
+
+	EnergyRecovery float32 // battery regen; UNCONFIRMED, see offEnergyRecovery
+	UnknownF32_154 float32 // UNKNOWN/under-research, see offUnknownF32_154
+
+	// SurfaceType: one raw material code byte per wheel (FL,FR,RL,RR). Kept RAW/faithful here —
+	// Decode does not trim or stringify it; interpreting the code table belongs to a later
+	// presentation layer. See offSurfaceType.
+	SurfaceType [4]byte
+
+	CurrentLapTimeMs int32 // ms; see offCurrentLapTimeMs
+
+	// WheelSteeringAngle: front-wheel steering angle in rad, {left, right}. See
+	// offWheelSteeringAngle{L,R}.
+	WheelSteeringAngle [2]float32
+
+	WheelBase float32 // m; see offWheelBase
+
+	// CarCategory: raw null-terminated ASCII category code. Kept RAW/faithful here — Decode does
+	// not trim or stringify it; interpretation belongs to a later presentation layer. See
+	// offCarCategory.
+	CarCategory [4]byte
 }

@@ -82,5 +82,40 @@
   "UnknownFlag12": false,
   "UnknownFlag13": false,
   "UnknownFlag14": false,
-  "UnknownFlag15": false
+  "UnknownFlag15": false,
+  "WheelRotation": 0,
+  "SteeringAngularVelocity": 0,
+  "Sway": 0,
+  "Heave": 0,
+  "Surge": 0,
+  "ThrottleFiltered": 0,
+  "BrakeFiltered": 0,
+  "UnknownU8_13E": 0,
+  "UnknownU8_13F": 0,
+  "TorqueVectors": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "EnergyRecovery": 0,
+  "UnknownF32_154": 0,
+  "SurfaceType": [
+    0,
+    0,
+    0,
+    0
+  ],
+  "CurrentLapTimeMs": 0,
+  "WheelSteeringAngle": [
+    0,
+    0
+  ],
+  "WheelBase": 0,
+  "CarCategory": [
+    0,
+    0,
+    0,
+    0
+  ]
 }

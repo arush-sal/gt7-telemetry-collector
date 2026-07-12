@@ -157,4 +157,62 @@ const (
 	offGear8          = 0x120
 
 	offCarID = 0x124 // int32
+
+	// Format-C tail (0x128..0x170). Present only in the 368-byte format-C packet (packetSizeC);
+	// format-A packets end at 0x128 and never carry these bytes. Reverse-engineered protocol fact,
+	// cross-checked against our own real format-C captures where noted below. Confidence levels: HIGH
+	// = confirmed against video/on-screen ground truth or a known real-world constant (e.g. a car's
+	// actual wheelbase); MED = plausible and internally consistent but not independently confirmed;
+	// UNCONFIRMED = read-but-untested (e.g. always 0 in our capture, which is also consistent with
+	// the car/situation never exercising the field); UNKNOWN = meaning not identified at all.
+	offWheelRotation = 0x128 // float32, rad. MED: read exactly pi during peak steering in our
+	// capture, which is suspicious (could be coincidence, not confirmation) — treat as unconfirmed
+	// in spirit despite the exact match.
+	offSteeringAngularVelocity = 0x12C // float32, rad/s. MED (reverse-engineered; not independently confirmed).
+	offSway                    = 0x130 // float32, X-axis acceleration. MED (reverse-engineered).
+	offHeave                   = 0x134 // float32, Y-axis acceleration. MED (reverse-engineered).
+	offSurge                   = 0x138 // float32, Z-axis acceleration. MED (reverse-engineered).
+
+	offThrottleFiltered = 0x13C // uint8, 0-255. HIGH: tracks the throttle trace in our reference video.
+	offBrakeFiltered    = 0x13D // uint8, 0-255. UNCONFIRMED: constant 0 throughout our capture, but
+	// so is the raw brake byte (offBrake) — the capture never brakes, so this doesn't confirm the
+	// offset, only that it's consistent with "no braking."
+	offUnknownU8_13E = 0x13E // uint8. UNKNOWN: constant 0 in our capture, meaning not identified.
+	offUnknownU8_13F = 0x13F // uint8. UNKNOWN: constant 0 in our capture, meaning not identified.
+
+	// Torque vectors, one float32 per wheel (FL,FR,RL,RR order per the reverse-engineered field map), +drive/-brake·regen.
+	// UNCONFIRMED: constant 0 in our capture (front-wheel-drive, non-hybrid car — a genuinely
+	// zero-torque-vectoring car would also read 0 here, so this doesn't confirm the offsets).
+	offTorqueVectorFL = 0x140
+	offTorqueVectorFR = 0x144
+	offTorqueVectorRL = 0x148
+	offTorqueVectorRR = 0x14C
+
+	offEnergyRecovery = 0x150 // float32, battery regen. UNCONFIRMED: constant 0 (non-hybrid car in
+	// our capture; a hybrid car would be needed to confirm this offset actually carries regen data).
+	offUnknownF32_154 = 0x154 // float32. UNKNOWN/under-research: varies 0.02-0.79 across our
+	// capture with no identified correlate; flagged for future investigation, not decoded meaning.
+
+	// SurfaceType: one byte per wheel (FL,FR,RL,RR), a surface-material code. HIGH: codes observed
+	// match the track surface under each wheel in our capture and the documented code table (see
+	// vault provenance) (T=tarmac, C=curb, D=dirt, G=grass, S=sand, s=snow).
+	offSurfaceType = 0x158 // [4]byte
+
+	offCurrentLapTimeMs = 0x15C // int32, ms. HIGH: exact match to the on-screen lap clock in our
+	// reference video. Renamed from the reverse-engineered field name to avoid confusion with the
+	// existing offCurrentLap (lap *number*, at 0x74) — this field is a lap *time*.
+
+	// WheelSteeringAngle: per-wheel steering angle (rad), [2]float32 = {left, right} per the
+	// reverse-engineered field map (only front wheels steer). HIGH: peaks during cornering in our
+	// capture, consistent with steering input.
+	offWheelSteeringAngleL = 0x160
+	offWheelSteeringAngleR = 0x164
+
+	offWheelBase = 0x168 // float32, m. HIGH: read ~1.8405 m in our capture, matching the real-world
+	// wheelbase of a Fiat Abarth 595 (1.843 m) closely enough to confirm the offset.
+
+	// CarCategory: a null-terminated ASCII category code, [4]byte. HIGH: our capture reads
+	// {'G','R','N',0} ("GRN"), matching GT7's in-game "N-class" category naming convention per the
+	// documented code table (see vault provenance).
+	offCarCategory = 0x16C
 )

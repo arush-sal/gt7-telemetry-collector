@@ -6,7 +6,6 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -66,22 +65,16 @@ func TestDecodeIdentity(t *testing.T) {
 	}
 }
 
-// TestDecodeGolden locks the full decoded struct for every fixture against a committed snapshot.
-// Regenerate (after verifying the values are correct) with:  go test -run Golden -update
-// Note: format-C golden snapshots are deferred to a future iteration when Decode handles C fields.
+// TestDecodeGolden locks the full decoded struct for every fixture — both format A (packet_*.bin)
+// and format C (packet_c_*.bin) — against a committed snapshot. Now that Decode is format-aware,
+// both families are covered by the same golden mechanism; format C simply carries more populated
+// fields in its snapshot. Regenerate (after verifying the values are correct) with:
+//
+//	go test -run Golden -update
 func TestDecodeGolden(t *testing.T) {
-	// Glob all packet_*.bin and filter out the format-C prefix explicitly (format-C fixtures have
-	// no golden snapshots yet), rather than relying on a numeric-suffix pattern that would
-	// silently under-count a mis-named format-A fixture (e.g. packet_8.bin).
-	allMatches, err := filepath.Glob(filepath.Join("testdata", "packet_*.bin"))
+	matches, err := filepath.Glob(filepath.Join("testdata", "packet_*.bin"))
 	if err != nil {
 		t.Fatal(err)
-	}
-	var matches []string
-	for _, m := range allMatches {
-		if !strings.HasPrefix(filepath.Base(m), "packet_c_") {
-			matches = append(matches, m)
-		}
 	}
 	for _, m := range matches {
 		name := filepath.Base(m)
@@ -110,4 +103,57 @@ func TestDecodeGolden(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestDecodeFormatCFields pins the format-C tail fields (0x128..0x170) against verified values
+// from packet_c_00.bin (see the offset table's provenance comments in constants.go), and proves
+// Decode is format-aware: a format-A fixture (packet_00.bin, 296 bytes) must decode with every one
+// of these new fields left at its zero value, because format A never carries the C tail.
+func TestDecodeFormatCFields(t *testing.T) {
+	t.Run("packet_c_00.bin", func(t *testing.T) {
+		d := decodeFixture(t, "packet_c_00.bin")
+
+		if d.CurrentLapTimeMs != 1808 {
+			t.Errorf("CurrentLapTimeMs = %d, want 1808", d.CurrentLapTimeMs)
+		}
+		wantSurface := [4]byte{'T', 'T', 'T', 'T'}
+		if d.SurfaceType != wantSurface {
+			t.Errorf("SurfaceType = %q, want %q", d.SurfaceType, wantSurface)
+		}
+		wantCategory := [4]byte{'G', 'R', 'N', 0}
+		if d.CarCategory != wantCategory {
+			t.Errorf("CarCategory = %q, want %q", d.CarCategory, wantCategory)
+		}
+		if d.WheelBase < 1.83 || d.WheelBase > 1.85 {
+			t.Errorf("WheelBase = %v, want in [1.83, 1.85]", d.WheelBase)
+		}
+		if d.BrakeFiltered != 0 {
+			t.Errorf("BrakeFiltered = %d, want 0", d.BrakeFiltered)
+		}
+	})
+
+	t.Run("packet_00.bin format A tail is zero", func(t *testing.T) {
+		d := decodeFixture(t, "packet_00.bin")
+
+		var zero GT7DData
+		if d.WheelRotation != zero.WheelRotation ||
+			d.SteeringAngularVelocity != zero.SteeringAngularVelocity ||
+			d.Sway != zero.Sway ||
+			d.Heave != zero.Heave ||
+			d.Surge != zero.Surge ||
+			d.ThrottleFiltered != zero.ThrottleFiltered ||
+			d.BrakeFiltered != zero.BrakeFiltered ||
+			d.UnknownU8_13E != zero.UnknownU8_13E ||
+			d.UnknownU8_13F != zero.UnknownU8_13F ||
+			d.TorqueVectors != zero.TorqueVectors ||
+			d.EnergyRecovery != zero.EnergyRecovery ||
+			d.UnknownF32_154 != zero.UnknownF32_154 ||
+			d.SurfaceType != zero.SurfaceType ||
+			d.CurrentLapTimeMs != zero.CurrentLapTimeMs ||
+			d.WheelSteeringAngle != zero.WheelSteeringAngle ||
+			d.WheelBase != zero.WheelBase ||
+			d.CarCategory != zero.CarCategory {
+			t.Errorf("format-A packet populated a format-C-only field; want all zero, got %+v", d)
+		}
+	})
 }
