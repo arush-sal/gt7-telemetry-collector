@@ -68,24 +68,48 @@ func (p *Publisher) Dropped() uint64 { return p.dropped.Load() }
 // Run dials the RTPS and streams buffered frames until ctx is cancelled, reconnecting with capped
 // exponential backoff on any stream error. It returns ctx.Err() on shutdown.
 func (p *Publisher) Run(ctx context.Context) error {
-	backoff := initialBackoff
+	return p.run(ctx, p.streamOnce, initialBackoff, maxBackoff)
+}
+
+// run is the reconnect loop, parameterized on the per-attempt function and the backoff bounds so it
+// can be driven deterministically in tests. attempt reports whether it made progress (sent) and any
+// stream error.
+func (p *Publisher) run(ctx context.Context, attempt func(context.Context) (bool, error), initial, max time.Duration) error {
+	backoff := initial
+	// warned is edge-triggered logging state: true once the current outage has been reported, so
+	// repeated failed reconnect attempts stay quiet (Debug) instead of spamming Warn. Any attempt
+	// that made progress (sent a frame) clears it, so a later outage warns again. The outage Warn is
+	// emitted ONLY on a no-progress attempt: streamOnce returns sent=true together with the error of
+	// a *subsequent* stream break, and treating that as an outage would re-warn (and re-Info) on
+	// every flap. A genuine outage produces sent=false attempts, which is where we warn.
+	warned := false
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		sent, err := p.streamOnce(ctx)
+		sent, err := attempt(ctx)
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		// Reset backoff after a stream that made progress; otherwise grow it (capped).
 		if sent {
-			backoff = initialBackoff
+			// Progress was made: the connection is (or just was) up. Reset backoff, and announce
+			// recovery once if we had previously reported an outage.
+			backoff = initial
+			if warned {
+				p.log.Info("RTPS connection re-established", zap.String("addr", p.addr))
+				warned = false
+			}
 		} else {
-			backoff = min(2*backoff, maxBackoff)
-		}
-		if err != nil {
-			p.log.Warn("publisher stream error; reconnecting",
-				zap.String("addr", p.addr), zap.Duration("backoff", backoff), zap.Error(err))
+			backoff = min(2*backoff, max)
+			if err != nil && !warned {
+				p.log.Warn("RTPS unavailable; buffering frames and retrying silently until it returns",
+					zap.String("addr", p.addr), zap.Error(err))
+				warned = true
+			} else if err != nil {
+				// Already reported this outage; keep retrying silently (detail at Debug only).
+				p.log.Debug("publisher reconnect attempt failed",
+					zap.String("addr", p.addr), zap.Duration("backoff", backoff), zap.Error(err))
+			}
 		}
 		t := time.NewTimer(backoff)
 		select {
