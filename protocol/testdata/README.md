@@ -7,6 +7,8 @@ decrypting them is what `protocol.Decrypt` is tested against.
 ## Provenance
 
 - Source: `supporting-data/nurburgring-lap.pcapng` (single Nürburgring lap, ~17 min, 60 Hz).
+  **Note (2026-09-11): that capture has been deleted from the repository.** These `.bin` fixtures are
+  self-contained and the tests are unaffected, but the source can no longer be re-sampled.
 - Filter: UDP datagrams with destination port **33740** (the GT7 telemetry stream).
 - Capture stats: 62,524 payloads on :33740, **all 296 bytes**; 619 heartbeat datagrams on :33739.
 - Sampling: 8 payloads taken evenly across the capture (indices 0, 7815, ... 54705) to span a lap
