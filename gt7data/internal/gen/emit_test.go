@@ -9,7 +9,7 @@ import (
 func TestEmitSourceIsValidAndSorted(t *testing.T) {
 	names := map[int32]string{104: "Nissan Sileighty", 24: "Foo", 296: "Bar"}
 
-	src, err := emitSource(names)
+	src, err := emitSource(names, nil)
 	if err != nil {
 		t.Fatalf("emitSource() error: %v", err)
 	}
@@ -30,5 +30,19 @@ func TestEmitSourceIsValidAndSorted(t *testing.T) {
 	// Must be marked generated so tooling and reviewers skip it.
 	if !strings.HasPrefix(s, "// Code generated") {
 		t.Errorf("missing generated-code marker; got first line %q", strings.SplitN(s, "\n", 2)[0])
+	}
+}
+
+func TestEmitSource_Drivetrains(t *testing.T) {
+	src, err := emitSource(map[int32]string{24: "Foo", 3405: "Bar"}, map[int32]string{3405: "MR", 24: "FF"})
+	if err != nil {
+		t.Fatalf("emitSource() error: %v", err)
+	}
+	s := string(src)
+	if !strings.Contains(s, "var carDrivetrains = map[int32]string{") || !strings.Contains(s, `3405: "MR",`) {
+		t.Errorf("missing carDrivetrains entries:\n%s", s)
+	}
+	if !strings.Contains(s, `"FF",`) {
+		t.Errorf("missing 24 drivetrain:\n%s", s)
 	}
 }

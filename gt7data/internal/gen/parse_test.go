@@ -58,3 +58,30 @@ func TestParseCSVErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestParseDrivetrainCSV(t *testing.T) {
+	got, err := parseDrivetrainCSV(strings.NewReader("car_id,drivetrain\n2107,\n3405,MR\n"))
+	if err != nil {
+		t.Fatalf("parseDrivetrainCSV() unexpected error: %v", err)
+	}
+	want := map[int32]string{3405: "MR"} // empty value omitted
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("parseDrivetrainCSV() = %v, want %v", got, want)
+	}
+}
+
+func TestParseDrivetrainCSVErrors(t *testing.T) {
+	cases := map[string]struct{ in, wantSub string }{
+		"bad value":    {"car_id,drivetrain\n77,XX\n", "77"},
+		"bad header":   {"id,drivetrain\n77,FF\n", "header"},
+		"duplicate id": {"car_id,drivetrain\n77,FF\n77,FR\n", "77"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := parseDrivetrainCSV(strings.NewReader(c.in))
+			if err == nil || !strings.Contains(err.Error(), c.wantSub) {
+				t.Errorf("parseDrivetrainCSV() error = %v, want containing %q", err, c.wantSub)
+			}
+		})
+	}
+}

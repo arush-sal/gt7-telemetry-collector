@@ -57,3 +57,55 @@ func parseCSV(r io.Reader) ([]carRow, error) {
 	}
 	return rows, nil
 }
+
+// wantDrivetrainHeader is the exact header row parseDrivetrainCSV requires.
+var wantDrivetrainHeader = []string{"car_id", "drivetrain"}
+
+// validDrivetrains is the closed set of drivetrain values the source may carry. It mirrors
+// gt7data.IsDrivetrain; the generator is a separate main package and cannot import it.
+var validDrivetrains = map[string]bool{"FF": true, "FR": true, "MR": true, "RR": true, "4WD": true}
+
+// parseDrivetrainCSV reads a drivetrain.csv stream into an id -> drivetrain map. Like parseCSV it
+// is strict: wrong header, bad id, a value outside the known set, or a duplicate id is a hard
+// error. An empty value means "unknown" and the row is omitted from the result.
+func parseDrivetrainCSV(r io.Reader) (map[int32]string, error) {
+	cr := csv.NewReader(r)
+	cr.FieldsPerRecord = 2
+
+	header, err := cr.Read()
+	if err != nil {
+		return nil, fmt.Errorf("read header: %w", err)
+	}
+	if len(header) != 2 || header[0] != wantDrivetrainHeader[0] || header[1] != wantDrivetrainHeader[1] {
+		return nil, fmt.Errorf("unexpected header %v, want %v", header, wantDrivetrainHeader)
+	}
+
+	out := map[int32]string{}
+	seen := map[int32]bool{}
+	for {
+		rec, err := cr.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read record: %w", err)
+		}
+		id64, err := strconv.ParseInt(rec[0], 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("car_id %q: %w", rec[0], err)
+		}
+		id := int32(id64)
+		if seen[id] {
+			return nil, fmt.Errorf("car_id %d: duplicate drivetrain row", id)
+		}
+		seen[id] = true
+		if rec[1] == "" {
+			continue
+		}
+		if !validDrivetrains[rec[1]] {
+			return nil, fmt.Errorf("car_id %d: invalid drivetrain %q", id, rec[1])
+		}
+		out[id] = rec[1]
+	}
+	return out, nil
+}
