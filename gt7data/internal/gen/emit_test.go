@@ -2,6 +2,7 @@ package main
 
 import (
 	"go/format"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -42,7 +43,7 @@ func TestEmitSource_Drivetrains(t *testing.T) {
 	if !strings.Contains(s, "var carDrivetrains = map[int32]string{") || !strings.Contains(s, `3405: "MR",`) {
 		t.Errorf("missing carDrivetrains entries:\n%s", s)
 	}
-	if !strings.Contains(s, `"FF",`) {
+	if !regexp.MustCompile(`24:\s+"FF",`).MatchString(s) {
 		t.Errorf("missing 24 drivetrain:\n%s", s)
 	}
 }

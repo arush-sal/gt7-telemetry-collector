@@ -62,7 +62,9 @@ func parseCSV(r io.Reader) ([]carRow, error) {
 var wantDrivetrainHeader = []string{"car_id", "drivetrain"}
 
 // validDrivetrains is the closed set of drivetrain values the source may carry. It mirrors
-// gt7data.IsDrivetrain; the generator is a separate main package and cannot import it.
+// gt7data.IsDrivetrain. It is duplicated rather than imported because of a bootstrap problem: the
+// generator writes the gt7data file that defines IsDrivetrain, so it must build before (and without)
+// that file existing.
 var validDrivetrains = map[string]bool{"FF": true, "FR": true, "MR": true, "RR": true, "4WD": true}
 
 // parseDrivetrainCSV reads a drivetrain.csv stream into an id -> drivetrain map. Like parseCSV it

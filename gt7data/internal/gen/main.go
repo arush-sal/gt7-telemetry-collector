@@ -1,7 +1,11 @@
-// Command gen reads carlist.csv and drivetrain.csv and regenerates carnames_gen.go, the compiled GT7 car-id -> name
-// table. Run it via `go generate ./collector/gt7data`. It fails loud on any data anomaly (bad id,
-// empty/padded/non-UTF-8 name, duplicate id, or two names that would resolve to the same display
-// string) so a malformed source can never silently ship a wrong table.
+// Command gen reads carlist.csv and drivetrain.csv and regenerates carnames_gen.go, the compiled GT7
+// car-id -> name and car-id -> drivetrain tables. Run it via `go generate ./collector/gt7data`.
+//
+// It fails loud on any data anomaly so a malformed source can never silently ship a wrong table:
+//   - carlist.csv: bad id, empty/padded/non-UTF-8 name, duplicate id, or two names that would
+//     resolve to the same display string;
+//   - drivetrain.csv: bad id, a drivetrain value outside FF/FR/MR/RR/4WD, a duplicate row for an
+//     id, or an id missing from carlist.csv.
 package main
 
 import (
