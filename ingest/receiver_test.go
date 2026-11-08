@@ -129,7 +129,10 @@ func TestReceiver_SetHeartbeatInterval(t *testing.T) {
 
 	cancel()
 	select {
-	case <-done:
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("Run returned %v, want context.Canceled", err)
+		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Run did not return after cancel")
 	}
