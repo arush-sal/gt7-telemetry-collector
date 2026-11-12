@@ -4,9 +4,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arush-sal/garage/backend/collector/gt7data"
-	"github.com/arush-sal/garage/backend/collector/protocol"
-	telemetryv1 "github.com/arush-sal/garage/backend/gen/gt7/telemetry/v1"
+	telemetryv1 "github.com/arush-sal/gt7-telemetry-collector/gen/gt7/telemetry/v1"
+	"github.com/arush-sal/gt7-telemetry-collector/gt7data"
+	"github.com/arush-sal/gt7-telemetry-collector/protocol"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/arush-sal/garage/backend/collector/protocol"
+	"github.com/arush-sal/gt7-telemetry-collector/protocol"
 	"go.uber.org/zap"
 )
 

@@ -5,10 +5,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/arush-sal/garage/backend/collector/protocol"
-	"github.com/arush-sal/garage/backend/collector/rawsink"
-	telemetryv1 "github.com/arush-sal/garage/backend/gen/gt7/telemetry/v1"
-	"github.com/arush-sal/garage/backend/telemetry"
+	telemetryv1 "github.com/arush-sal/gt7-telemetry-collector/gen/gt7/telemetry/v1"
+	"github.com/arush-sal/gt7-telemetry-collector/protocol"
+	"github.com/arush-sal/gt7-telemetry-collector/rawsink"
+	"github.com/arush-sal/gt7-telemetry-collector/telemetry"
 )
 
 // Publisher is the subset of the transport publisher the pipeline needs. Depending on this

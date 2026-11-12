@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arush-sal/garage/backend/collector/protocol"
-	telemetryv1 "github.com/arush-sal/garage/backend/gen/gt7/telemetry/v1"
+	telemetryv1 "github.com/arush-sal/gt7-telemetry-collector/gen/gt7/telemetry/v1"
+	"github.com/arush-sal/gt7-telemetry-collector/protocol"
 )
 
 // TestToCanonical checks the GT7DData -> TelemetryFrame seam: capture metadata is carried through,

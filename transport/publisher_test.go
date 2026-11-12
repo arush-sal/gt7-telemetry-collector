@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	telemetryv1 "github.com/arush-sal/garage/backend/gen/gt7/telemetry/v1"
+	telemetryv1 "github.com/arush-sal/gt7-telemetry-collector/gen/gt7/telemetry/v1"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"

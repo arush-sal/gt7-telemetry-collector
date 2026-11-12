@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/arush-sal/garage/backend/collector/ingest"
-	telemetryv1 "github.com/arush-sal/garage/backend/gen/gt7/telemetry/v1"
+	telemetryv1 "github.com/arush-sal/gt7-telemetry-collector/gen/gt7/telemetry/v1"
+	"github.com/arush-sal/gt7-telemetry-collector/ingest"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcapgo"
