@@ -14,11 +14,11 @@ bytes for debugging and offline analysis.
 ## How it works
 
 ```mermaid
-flowchart LR
+flowchart TD
     PS5["PS5 / GT7"] -->|"UDP :33740"| Receiver["ingest.Receiver"]
     Receiver -->|"Heartbeat C to UDP :33739"| PS5
     Receiver --> Decrypt["Salsa20 decrypt"]
-    Receiver -->|"Optional raw tee"| Raw["rawsink: raw-<unix>.pcap"]
+    Receiver -->|"Optional raw tee"| Raw["rawsink: raw-#lt;unix#gt;.pcap"]
     Decrypt --> Dedup["Dedup / gap and reset tracking"]
     Dedup --> Decode["protocol.Decode"]
     Decode --> Canonical["telemetry.ToCanonical"]
