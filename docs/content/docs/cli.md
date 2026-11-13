@@ -14,7 +14,7 @@ before any socket or file is opened. Positional arguments are rejected.
 | --- | --- | --- |
 | `--ps5` | Required | Literal PS5 IP address (hostnames are rejected). |
 | `--rtps` | `localhost:50051` | RTPS target: bare `host:port`, `grpc://host:port`, `unix:///abs/path.sock`, or `http(s)://host/path`. Must not be empty. See [Transports]({{< relref "transports" >}}). |
-| `--rtps-token` | Empty (falls back to `GARAGE_INGEST_TOKEN`) | Optional ingest bearer token. Prefer the environment variable to keep it out of `ps`. |
+| `--rtps-token` | Empty (falls back to `INGEST_TOKEN`) | Optional ingest bearer token. Prefer the environment variable to keep it out of `ps`. |
 | `--recv-port` | `33740` | Local UDP receive port; 1..65535. |
 | `--send-port` | `33739` | Console UDP heartbeat destination port; 1..65535. |
 | `--heartbeat` | `1s` | Heartbeat interval in Go duration syntax; must be positive. |
@@ -30,7 +30,7 @@ before any socket or file is opened. Positional arguments are rejected.
 
 | Variable | Meaning |
 | --- | --- |
-| `GARAGE_INGEST_TOKEN` | Bearer token used when `--rtps-token` is empty. A non-empty flag overrides it. With neither set, no authentication header is sent. |
+| `INGEST_TOKEN` | Bearer token used when `--rtps-token` is empty. A non-empty flag overrides it. With neither set, no authentication header is sent. |
 
 Tokens are redacted from configuration error messages.
 
@@ -49,11 +49,11 @@ Tokens are redacted from configuration error messages.
 gt7-collector --ps5=192.168.1.50
 
 # Unix socket, with raw capture and debug logs
-gt7-collector --ps5=192.168.1.50 --rtps=unix:///run/garage/ingest.sock \
+gt7-collector --ps5=192.168.1.50 --rtps=unix:///run/gt-collector/ingest.sock \
   --rawdump-dir=./rawdump --log-level=debug
 
 # HTTPS with a token from the environment
-GARAGE_INGEST_TOKEN=... gt7-collector --ps5=192.168.1.50 \
+INGEST_TOKEN=... gt7-collector --ps5=192.168.1.50 \
   --rtps=https://rtps.example.com/v1/ingest
 ```
 

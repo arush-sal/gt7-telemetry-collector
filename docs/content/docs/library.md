@@ -92,7 +92,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	pub, err := transport.New("unix:///run/garage/ingest.sock", 1024, zap.NewNop(),
+	pub, err := transport.New("unix:///run/gt-collector/ingest.sock", 1024, zap.NewNop(),
 		transport.WithToken("")) // empty token: no authentication
 	if err != nil {
 		log.Fatal(err)

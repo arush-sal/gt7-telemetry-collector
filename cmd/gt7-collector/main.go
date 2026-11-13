@@ -38,7 +38,7 @@ var version, commit, date = "dev", "none", "unknown"
 // parseFlags validates configuration before any resources are opened.
 func parseFlags(args []string) (_ config, err error) {
 	var c config
-	envToken := os.Getenv("GARAGE_INGEST_TOKEN")
+	envToken := os.Getenv("INGEST_TOKEN")
 	tokens := []string{envToken}
 	for i, arg := range args {
 		if arg == "--rtps-token" && i+1 < len(args) {
@@ -63,10 +63,8 @@ func parseFlags(args []string) (_ config, err error) {
 	}()
 	fs := pflag.NewFlagSet("gt7-collector", pflag.ContinueOnError)
 	fs.StringVar(&c.ps5, "ps5", "", "PS5 IP address (required)")
-	// Defaults mirror backend/internal/config/config.go (LoadBackend); --rtps and --pub-buffer use the
-	// removed cmd/collector's rtps.addr and live_buffer.size defaults (backend 91a6668^).
 	fs.StringVar(&c.rtps, "rtps", "localhost:50051", "RTPS target: host:port, grpc://host:port, unix:///path.sock, or http(s)://host/path")
-	fs.StringVar(&c.rtpsToken, "rtps-token", "", "ingest bearer token (empty uses GARAGE_INGEST_TOKEN; prefer env to keep it out of ps)")
+	fs.StringVar(&c.rtpsToken, "rtps-token", "", "ingest bearer token (empty uses INGEST_TOKEN; prefer env to keep it out of ps)")
 	fs.IntVar(&c.recvPort, "recv-port", 33740, "UDP receive port")
 	fs.IntVar(&c.sendPort, "send-port", 33739, "UDP heartbeat destination port")
 	fs.DurationVar(&c.heartbeat, "heartbeat", time.Second, "heartbeat interval")

@@ -23,11 +23,11 @@ The schema is `gt7.telemetry.v1.TelemetryFrame`
   the collector connects.
 - HTTP(S) targets must not contain URL userinfo or any query string (including an
   empty `?`), and need a host and no fragment. Supply credentials with
-  `--rtps-token`, `GARAGE_INGEST_TOKEN`, or `transport.WithToken` instead.
+  `--rtps-token`, `INGEST_TOKEN`, or `transport.WithToken` instead.
 
 ## Authentication
 
-Set `GARAGE_INGEST_TOKEN` or pass `--rtps-token` to send a bearer token.
+Set `INGEST_TOKEN` or pass `--rtps-token` to send a bearer token.
 HTTP(S) sends `Authorization: Bearer <token>` on the streaming POST. gRPC sends
 `authorization: Bearer <token>` as per-RPC metadata on each `Ingest` stream.
 Unix sockets ignore the token and rely on socket file permissions. Network
@@ -111,7 +111,7 @@ func ingest(w http.ResponseWriter, r *http.Request) {
 	// Needed when the handler responds before the request body is consumed.
 	_ = http.NewResponseController(w).EnableFullDuplex()
 
-	want := transport.BearerPrefix + os.Getenv("GARAGE_INGEST_TOKEN")
+	want := transport.BearerPrefix + os.Getenv("INGEST_TOKEN")
 	got := r.Header.Get(transport.AuthHeader)
 	if subtle.ConstantTimeCompare([]byte(got), []byte(want)) != 1 {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)

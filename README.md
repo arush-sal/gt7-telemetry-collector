@@ -204,7 +204,7 @@ These are the flags implemented by [`parseFlags`](cmd/gt7-collector/main.go).
 | --- | --- | --- |
 | `--ps5` | Required | Literal PS5 IP address. |
 | `--rtps` | `localhost:50051` | RTPS target: bare `host:port`, `grpc://`, `unix:///`, or HTTP(S) URL. |
-| `--rtps-token` | Empty (uses `GARAGE_INGEST_TOKEN`) | Optional ingest bearer token; prefer the environment variable to keep it out of `ps`. |
+| `--rtps-token` | Empty (uses `INGEST_TOKEN`) | Optional ingest bearer token; prefer the environment variable to keep it out of `ps`. |
 | `--recv-port` | `33740` | Local UDP receive port; 1..65535. |
 | `--send-port` | `33739` | Console UDP heartbeat destination port; 1..65535. |
 | `--heartbeat` | `1s` | Positive heartbeat interval, in Go duration syntax. |
@@ -212,8 +212,6 @@ These are the flags implemented by [`parseFlags`](cmd/gt7-collector/main.go).
 | `--raw-buffer` | `1024` | Positive raw packet buffer depth. |
 | `--pub-buffer` | `1024` | Positive outbound frame buffer depth; oldest frame dropped when full. |
 | `--log-level` | `info` | `debug`, `info`, `warn`, or `error`. |
-
-Defaults match the GARAGE backend's collector configuration.
 
 ## Raw packet dumps (pcap)
 
@@ -257,7 +255,7 @@ The collector dials the consumer (push model). `--rtps` selects the transport:
 | `unix:///absolute/path.sock` | Unix stream socket; four-byte big-endian payload length followed by protobuf bytes. |
 | `http://host/path` or `https://host/path` | One long-lived streaming POST to the URL path, `Content-Type: application/x-ndjson`; one protojson frame per line. |
 
-Set `GARAGE_INGEST_TOKEN` in the collector's environment to send an optional
+Set `INGEST_TOKEN` in the collector's environment to send an optional
 bearer token without putting it in process arguments (`ps`). Alternatively, use
 `--rtps-token`; a non-empty flag overrides the environment variable, while an
 empty flag falls back to it. With neither set, no authentication header is sent.
@@ -273,7 +271,7 @@ token and rely on socket file permissions; neither `unix:///path.sock` nor
 `unix:/path.sock` triggers this warning.
 
 HTTP(S) targets must not contain URL userinfo or any query string (including
-an empty `?`); supply credentials with `--rtps-token`, `GARAGE_INGEST_TOKEN`, or
+an empty `?`); supply credentials with `--rtps-token`, `INGEST_TOKEN`, or
 `WithToken` instead. Network tokens must follow RFC 6750 `b64token` syntax:
 one or more ASCII letters, digits, or `-._~+/`, followed by optional `=` padding.
 Whitespace is rejected, including leading or trailing whitespace.
@@ -323,7 +321,7 @@ The snippet uses `net`, `errors`, `io`, `fmt`, and
 ### Is ingest authenticated?
 
 Authentication is an optional bearer token. Configure it with
-`GARAGE_INGEST_TOKEN` or `--rtps-token`, and configure the consumer to validate it.
+`INGEST_TOKEN` or `--rtps-token`, and configure the consumer to validate it.
 Without a token, the collector sends no authentication. `unix://` relies on
 socket permissions and ignores bearer tokens. CORS is not authentication.
 
@@ -374,4 +372,4 @@ implementations was copied or vendored.
 | Change License | GNU General Public License version 3.0 (GPLv3) |
 | Additional Use Grant | None. |
 
-See [LICENSE](LICENSE) for the full terms. The license text is identical to the GARAGE backend's.
+See [LICENSE](LICENSE) for the full terms.

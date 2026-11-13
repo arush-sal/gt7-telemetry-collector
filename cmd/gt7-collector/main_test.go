@@ -18,7 +18,7 @@ import (
 )
 
 func TestParseFlags(t *testing.T) {
-	t.Setenv("GARAGE_INGEST_TOKEN", "")
+	t.Setenv("INGEST_TOKEN", "")
 	tests := []struct {
 		name    string
 		args    []string
@@ -89,7 +89,7 @@ func TestTokenPrecedence(t *testing.T) {
 		{name: "empty flag falls back", env: "env-secret", want: "env-secret", supplied: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("GARAGE_INGEST_TOKEN", tt.env)
+			t.Setenv("INGEST_TOKEN", tt.env)
 			args := []string{"--ps5=127.0.0.1"}
 			if tt.supplied {
 				args = append(args, "--rtps-token="+tt.flag)
@@ -150,7 +150,7 @@ func TestTokenRedactionBeforeParsing(t *testing.T) {
 		{"env-secret", []string{"--heartbeat=flag-secret", "--rtps-token=flag-secret"}},
 		{"", []string{"--heartbeat=secret", "--rtps-token=secret", "--rtps-token=other"}},
 	} {
-		t.Setenv("GARAGE_INGEST_TOKEN", tt.env)
+		t.Setenv("INGEST_TOKEN", tt.env)
 		_, err := parseFlags(tt.args)
 		if err == nil || strings.Contains(err.Error(), "secret") {
 			t.Errorf("unsafe parse error: %v", err)

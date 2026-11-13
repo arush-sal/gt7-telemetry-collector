@@ -5,7 +5,7 @@ weight: 8
 
 ## Token authentication
 
-Ingest authentication is an optional bearer token. Set `GARAGE_INGEST_TOKEN` in
+Ingest authentication is an optional bearer token. Set `INGEST_TOKEN` in
 the collector's environment, or pass `--rtps-token` (a non-empty flag overrides
 the environment variable). The consumer must validate the token to reject
 unauthenticated telemetry; with no token configured the collector sends no

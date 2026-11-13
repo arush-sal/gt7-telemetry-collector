@@ -38,7 +38,7 @@ layout: hextra-home
 <p class="gt7-section-sub">Point it at your console and your consumer. Everything else is a flag.</p>
 {{< terminal >}}
 <span class="p">$</span> go install github.com/arush-sal/gt7-telemetry-collector/cmd/gt7-collector@latest
-<span class="p">$</span> export GARAGE_INGEST_TOKEN=change-me
+<span class="p">$</span> export INGEST_TOKEN=change-me
 <span class="p">$</span> gt7-collector --ps5=192.168.1.50 --rtps=https://rtps.lan:8443/v1/ingest --rawdump-dir=./rawdump
 
 <span class="p">$</span> gt7-collector --help
@@ -51,7 +51,7 @@ Usage of gt7-collector:
       --rawdump-dir string     raw dump directory (empty disables dumping)
       --recv-port int          UDP receive port <span class="c">(default 33740)</span>
       --rtps string            RTPS target: host:port, grpc://, unix://, http(s):// <span class="c">(default "localhost:50051")</span>
-      --rtps-token string      ingest bearer token (empty uses GARAGE_INGEST_TOKEN)
+      --rtps-token string      ingest bearer token (empty uses INGEST_TOKEN)
       --send-port int          UDP heartbeat destination port <span class="c">(default 33739)</span>
       --version                print version information and exit
 {{< /terminal >}}
