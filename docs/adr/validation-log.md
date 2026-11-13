@@ -212,3 +212,14 @@ exact 1009 for oversized frames; Origin==Host shortcut, comma-combined and
 duplicate Origin rejected; 431 for >8 KiB headers; ReadHeaderTimeout 3s
 with residual risk documented. Fuzz: `FuzzNormalizeOrigin` 242k execs,
 `FuzzParseSubprotocols` 198k execs, no crashers. govulncheck clean.
+
+## Phase 4 peer review (Codex, 2026-11-14)
+
+No lifecycle defects. Fixed: runtime errors (e.g. TLS file paths) now
+redacted of all tokens in `mainExit`; pflag `%q`-quoted tokens redacted;
+tests for raw-sink failure after `Listen` (port released), injected
+`Serve` failure stopping the receiver, cleanup/timeout hygiene. `--rtps`
+help text change recorded in ADR 0001. Remaining: three port TOCTOU spots
+in tests (ports must be 1..65535 on the CLI path), documented in code.
+Pre-existing: an RTPS publisher created before a later startup failure is
+not explicitly stopped (no goroutine started; unchanged behaviour).

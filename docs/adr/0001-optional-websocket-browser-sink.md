@@ -76,7 +76,7 @@ collector must listen and the browser must dial it.
 
 | Flag / env | Default | Meaning |
 |---|---|---|
-| `--rtps=none` | not default | Disable RTPS publishing; requires `--ws-listen` |
+| `--rtps=none` | not default | Disable RTPS publishing; requires `--ws-listen`. `--rtps` help text: `RTPS target: host:port, grpc://host:port, unix:///path.sock, http(s)://host/path, or none (requires --ws-listen)` |
 | `--ws-listen` | empty (off) | `host:port` for the HTTP/WS listener |
 | `--ws-origin` | none | Repeatable exact browser origin; required when `--ws-listen` set |
 | `--ws-max-clients` | `4` | Concurrent WebSocket clients (1..64) |
