@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: gt7-collector
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: gt7-collector
+    main: ./cmd/gt7-collector
+    binary: gt7-collector
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+sboms:
+  - id: archive
+    artifacts: archive
+    cmd: syft
+    documents:
+      - "${artifact}.spdx.json"
+    args: ["$artifact", "--output", "spdx-json=$document"]
+
+# Keyless cosign (GitHub OIDC) bundles for every published file: archives, checksums and SBOMs.
+# Raw binaries are not published (only archives), so they are not signed; their bundle names
+# would also collide across platforms.
+signs:
+  - id: cosign-archive
+    cmd: cosign
+    artifacts: archive
+    output: true
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--yes", "--bundle=${signature}", "${artifact}"]
+  - id: cosign-checksum
+    cmd: cosign
+    artifacts: checksum
+    output: true
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--yes", "--bundle=${signature}", "${artifact}"]
+  - id: cosign-sbom
+    cmd: cosign
+    artifacts: sbom
+    output: true
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--yes", "--bundle=${signature}", "${artifact}"]
+
+changelog:
+  sort: asc
+  use: git
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Other
+      order: 999
+  filters:
+    exclude:
+      - '^docs?:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+
+release:
+  github:
+    owner: arush-sal
+    name: gt7-telemetry-collector
+  prerelease: auto
+  header: |
+    ## gt7-collector {{ .Tag }}
+
+    Binaries for linux, darwin and windows (amd64, arm64). Every artifact has a
+    keyless Sigstore bundle (`.sigstore.json`) and a SLSA build provenance attestation.
+  footer: |
+    ## Verification
+
+    Download an artifact `X` and its bundle `X.sigstore.json`, then:
+
+    ```sh
+    cosign verify-blob --bundle X.sigstore.json \
+      --certificate-identity-regexp '^https://github\.com/arush-sal/gt7-telemetry-collector/\.github/workflows/release\.yml@refs/tags/v.*$' \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com X
+
+    gh attestation verify X --repo arush-sal/gt7-telemetry-collector
+    ```
+
+    Check archives against `checksums.txt` with `sha256sum -c --ignore-missing checksums.txt`.

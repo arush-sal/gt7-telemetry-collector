@@ -1,0 +1,105 @@
+name: Security
+
+# On push/PR this runs via build.yml (workflow_call) as the build gate; standalone only weekly
+# and on demand, so it isn't run twice per push.
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_SKIP_VERSION_CHECK: "true"
+
+jobs:
+  trivy-filesystem:
+    name: Trivy ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: application
+            scan-ref: .
+            scanners: vuln,secret
+            skip-dirs: .github,.git
+          - name: github-actions
+            scan-ref: .github/workflows
+            scanners: secret
+            skip-dirs: ""
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan ${{ matrix.name }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: ${{ matrix.scan-ref }}
+          scanners: ${{ matrix.scanners }}
+          skip-dirs: ${{ matrix.skip-dirs }}
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          cache: false
+          timeout: 10m
+
+  zizmor:
+    name: Zizmor GitHub Actions audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Audit GitHub Actions workflows
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          inputs: .github
+          version: 1.32.0
+          min-severity: high
+          advanced-security: false
+          annotations: true
+
+  govulncheck:
+    name: Govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+
+      - name: Run govulncheck
+        run: govulncheck ./...

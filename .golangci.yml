@@ -1,0 +1,20 @@
+# golangci-lint v2 configuration for gt7-telemetry-collector.
+# Run: golangci-lint run
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  # "standard" = errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  enable:
+    - misspell # catches common typos in comments/strings
+    - revive # style + the exported-doc-comment rule (backs our commit discipline)
+  settings:
+    revive:
+      rules:
+        # exported identifiers must have a doc comment starting with their name
+        - name: exported
+          arguments:
+            - checkPrivateReceivers

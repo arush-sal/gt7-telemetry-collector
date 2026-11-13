@@ -4,9 +4,15 @@
 <p>From PS5 UDP packets to canonical telemetry frames, ready for RTPS.</p>
 
 [![Go 1.27](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)](go.mod)
+[![Tests](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/test.yml/badge.svg)](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/test.yml)
+[![Security](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/security.yml/badge.svg)](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/security.yml)
+[![Release](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/release.yml/badge.svg)](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/release.yml)
+[![Docs](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/docs.yml/badge.svg)](https://arush-sal.github.io/gt7-telemetry-collector/)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue)](LICENSE)
 [![Go Reference](https://img.shields.io/badge/Go-Reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/arush-sal/gt7-telemetry-collector)
 
+<a href="https://arush-sal.github.io/gt7-telemetry-collector/">Documentation</a> &middot;
+<a href="#install">Install</a> &middot;
 <a href="#quick-start">Quick start</a> &middot;
 <a href="#how-it-works">How it works</a> &middot;
 <a href="#packages">Packages</a> &middot;
@@ -22,6 +28,33 @@ Receive encrypted packets from a PS5, decrypt and deduplicate them, and stream
 canonical protobuf frames to a Real Time Processing System (RTPS) over gRPC,
 a Unix stream socket, or HTTP(S).
 Optional raw dumps preserve received bytes for debugging and offline analysis.
+
+## Install
+
+Prebuilt binaries for linux, macOS and windows (amd64, arm64) are attached to
+each [GitHub Release](https://github.com/arush-sal/gt7-telemetry-collector/releases),
+with `checksums.txt`, an SBOM per archive, and Sigstore bundles. Or build from
+source with Go:
+
+```sh
+go install github.com/arush-sal/gt7-telemetry-collector/cmd/gt7-collector@latest
+gt7-collector --version
+```
+
+### Verify a release
+
+Download an artifact `X` and its `X.sigstore.json` bundle, then check the
+keyless signature and the SLSA build provenance:
+
+```sh
+cosign verify-blob --bundle X.sigstore.json \
+  --certificate-identity-regexp '^https://github\.com/arush-sal/gt7-telemetry-collector/\.github/workflows/release\.yml@refs/tags/v.*$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com X
+
+gh attestation verify X --repo arush-sal/gt7-telemetry-collector
+
+sha256sum -c --ignore-missing checksums.txt
+```
 
 ## Quick start
 

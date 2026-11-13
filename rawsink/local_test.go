@@ -44,7 +44,7 @@ func TestLocalSinkRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer source.Close()
+			defer func() { _ = source.Close() }()
 			n := 0
 			if err := source.Play(context.Background(), 33740, math.Inf(1), func(p []byte, ts time.Time) {
 				if n >= len(payloads) {
@@ -64,7 +64,7 @@ func TestLocalSinkRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 			r, err := pcapgo.NewReader(f)
 			if err != nil {
 				t.Fatal(err)

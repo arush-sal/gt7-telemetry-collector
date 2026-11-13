@@ -1,0 +1,47 @@
+site_name: gt7-telemetry-collector
+site_description: Standalone Go collector and library that turns Gran Turismo 7 UDP telemetry into canonical protobuf frames.
+site_url: https://arush-sal.github.io/gt7-telemetry-collector/
+repo_url: https://github.com/arush-sal/gt7-telemetry-collector
+repo_name: arush-sal/gt7-telemetry-collector
+edit_uri: blob/master/docs/
+docs_dir: docs
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+nav:
+  - Overview: index.md
+  - Install: install.md
+  - CLI reference: cli.md
+  - Transports: transports.md
+  - Library: library.md
+  - Raw dumps: raw-dumps.md
+  - Protocol: protocol.md
+  - Security: security.md
+  - Contributing: contributing.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format

@@ -1,3 +1,7 @@
 /gt7-collector
 *.test
 /rawdump/
+/dist/
+coverage.out
+coverage.html
+/site/

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -73,7 +75,7 @@ func TestRunCreatesPCAP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 }
 
 func TestTokenPrecedence(t *testing.T) {
@@ -152,6 +154,32 @@ func TestTokenRedactionBeforeParsing(t *testing.T) {
 		_, err := parseFlags(tt.args)
 		if err == nil || strings.Contains(err.Error(), "secret") {
 			t.Errorf("unsafe parse error: %v", err)
+		}
+	}
+}
+
+func TestVersionFlag(t *testing.T) {
+	oldV, oldC, oldD := version, commit, date
+	t.Cleanup(func() { version, commit, date = oldV, oldC, oldD })
+	version, commit, date = "1.2.3", "abc1234", "2026-01-02T03:04:05Z"
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldOut := os.Stdout
+	os.Stdout = w
+	code := mainExit([]string{"--version"})
+	os.Stdout = oldOut
+	_ = w.Close()
+	out, _ := io.ReadAll(r)
+
+	if code != 0 {
+		t.Errorf("--version exit = %d, want 0", code)
+	}
+	for _, want := range []string{"1.2.3", "abc1234", "2026-01-02T03:04:05Z"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("--version output %q missing %q", out, want)
 		}
 	}
 }

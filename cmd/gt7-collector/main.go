@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -28,7 +29,11 @@ type config struct {
 	ps5, rtps, rtpsToken, rawDumpDir, logLevel string
 	recvPort, sendPort, rawBuffer, pubBuffer   int
 	heartbeat                                  time.Duration
+	showVersion                                bool
 }
+
+// Set at release time via -ldflags "-X main.version=... -X main.commit=... -X main.date=...".
+var version, commit, date = "dev", "none", "unknown"
 
 // parseFlags validates configuration before any resources are opened.
 func parseFlags(args []string) (_ config, err error) {
@@ -69,8 +74,12 @@ func parseFlags(args []string) (_ config, err error) {
 	fs.IntVar(&c.rawBuffer, "raw-buffer", 1024, "raw packet buffer depth")
 	fs.IntVar(&c.pubBuffer, "pub-buffer", 1024, "outbound canonical-frame buffer depth")
 	fs.StringVar(&c.logLevel, "log-level", "info", "log level: debug|info|warn|error")
+	fs.BoolVar(&c.showVersion, "version", false, "print version information and exit")
 	if err := fs.Parse(args); err != nil {
 		return config{}, err
+	}
+	if c.showVersion {
+		return c, nil
 	}
 	if c.rtpsToken == "" {
 		c.rtpsToken = envToken
@@ -118,6 +127,17 @@ func mainExit(args []string) int {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "config:", err)
 		return 2
+	}
+	if cfg.showVersion {
+		v := version
+		if v == "dev" {
+			// go install builds carry no ldflags; fall back to the module version Go embedded.
+			if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+				v = bi.Main.Version
+			}
+		}
+		fmt.Printf("gt7-collector %s (commit %s, built %s)\n", v, commit, date)
+		return 0
 	}
 	log, err := newLogger(cfg.logLevel)
 	if err != nil {
