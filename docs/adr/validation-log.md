@@ -200,3 +200,15 @@ de-flaked slow-client and concurrent-ordering tests (stress
 `-race -count=20 -cpu 1,2,8` green), best-effort drop-oldest documented,
 hand-computed drop arithmetic, waiting-burst test, benchmark goroutines
 joined, ADR 0002 ordering section updated for the accepted deviations.
+
+## Phase 3 peer review (Codex, security focus, 2026-11-14)
+
+Blocking, fixed: pre-auth listener pinning via withheld request bodies
+(ReadTimeout/WriteTimeout 10s, body rejection with immediate read
+deadline, real-listener regression test). Non-blocking, fixed: shutdown
+deadline now force-closes and returns an error; close path bounded by a
+raw `net.Conn` deadline (flooding client released within WriteTimeout+1s);
+exact 1009 for oversized frames; Origin==Host shortcut, comma-combined and
+duplicate Origin rejected; 431 for >8 KiB headers; ReadHeaderTimeout 3s
+with residual risk documented. Fuzz: `FuzzNormalizeOrigin` 242k execs,
+`FuzzParseSubprotocols` 198k execs, no crashers. govulncheck clean.

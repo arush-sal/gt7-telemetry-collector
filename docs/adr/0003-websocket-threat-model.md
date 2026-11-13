@@ -49,7 +49,9 @@ LAN addresses, collector availability (and therefore RTPS delivery), the
 - Each value must parse as `scheme://host[:port]` with scheme `http` or
   `https`, no path (a single trailing `/` is rejected, not trimmed), no query,
   fragment or userinfo, no `*`, not `null`. Scheme and host are lowercased;
-  default ports (`:80` for http, `:443` for https) are stripped. Comparison
+  default ports (`:80` for http, `:443` for https) are stripped. Ports must be
+  canonical decimal 1..65535 (no leading zeros) and `%` escapes are rejected,
+  so the library's raw-host match can never disagree with ours. Comparison
   with the request `Origin` uses the same normalization and is **exact
   string equality**: no suffix, prefix, wildcard or regex matching.
 - Requests to `/v1/stream` with a missing, `null` or unlisted `Origin` are
@@ -92,7 +94,9 @@ LAN addresses, collector availability (and therefore RTPS delivery), the
 - Server parsing of `Sec-WebSocket-Protocol` (all header lines, comma
   separated, whitespace trimmed): exactly one `gt7.inputs.v1` must be
   present; zero or one `gt7.token.*` entry; more than one token entry,
-  empty entries or more than 8 entries total -> HTTP 400.
+  empty entries, more than 8 entries total, or a case variant of
+  `gt7.inputs.v1` (the library matches case-insensitively and would echo the
+  variant) -> HTTP 400.
 - Comparison: `subtle.ConstantTimeCompare` of SHA-256 digests of the offered
   and configured tokens (avoids leaking length).
 - Missing or wrong token -> HTTP 401 with a fixed body; the offered value is
@@ -132,7 +136,9 @@ LAN addresses, collector availability (and therefore RTPS delivery), the
 
 | Control | Value |
 |---|---|
-| `http.Server.ReadHeaderTimeout` | 5s |
+| `http.Server.ReadHeaderTimeout` | 3s |
+| `http.Server.ReadTimeout` / `WriteTimeout` | 10s / 10s (plain requests and handshakes only; net/http clears both on Hijack, so established WebSockets are unaffected, tested) |
+| Request bodies | Any request with `Content-Length != 0` or `Transfer-Encoding` -> HTTP 400 with `Connection: close` before routing; the read deadline is expired so net/http's post-handler body drain cannot pin a connection slot |
 | `http.Server.MaxHeaderBytes` | 8 KiB |
 | `http.Server.IdleTimeout` | 30s (does not apply to upgraded, hijacked connections) |
 | Accepted TCP/TLS connections (incl. in-flight handshakes and upgraded clients) | `netutil.LimitListener(max-clients + 16)`; excess connections wait in the kernel backlog |
@@ -140,8 +146,9 @@ LAN addresses, collector availability (and therefore RTPS delivery), the
 | Per-client queue | `--ws-client-buffer` (default 64), drop-oldest |
 | Write deadline | `--ws-write-timeout` (default 2s); exceeded -> close 4000, counted |
 | Liveness | server ping every 10s; no pong within 5s -> close, slot released (detects dead peers while the source is silent) |
-| Read limit | 1 KiB per data message (control frames are not data); the stream is read-only and any data message closes 1008; a `CloseRead`-style reader always runs so pongs and close frames are processed |
-| Close handshake | bounded by the write timeout |
+| Read limit | 1 KiB per data message (control frames are not data); the stream is read-only and any data message closes 1008 `read_only_stream` (over-limit: library 1009); a reader loop always runs so pongs and close frames are processed. Not `conn.CloseRead`: in v1.8.15 it closes from inside its own goroutine and then waits up to 15s for itself |
+| Close handshake | bounded by the write timeout via a socket deadline on the hijacked connection (the library's own close timeouts are 5s/15s) |
+| Shutdown | handlers and `http.Server.Shutdown` bounded by write timeout + 1s; past that, remaining connections are force-closed and `Serve` returns an error |
 | Compression | disabled |
 | Methods / paths | `GET /v1/stream`, `GET /healthz`; others 404/405 |
 
@@ -178,7 +185,7 @@ No CORS headers are sent on any endpoint.
 | Token echoed | Only `gt7.inputs.v1` negotiated | response `Sec-WebSocket-Protocol` == `gt7.inputs.v1`; body/headers never contain token |
 | Token in logs/errors | Redaction, no header logging | observer logs contain no token across failure paths |
 | Client sends data | Read-only, 1 KiB limit | text frame -> close 1008; 1 MiB frame -> close 1009 |
-| Connection exhaustion | Max clients, header timeout/limit | N+1th upgrade -> 503; slowloris header -> closed after 5s; goroutine count returns to baseline |
+| Connection exhaustion | Max clients, header timeout/limit, body rejection | N+1th upgrade -> 503; slowloris header -> closed after ReadHeaderTimeout; header > 8 KiB -> 431; max-clients+16 requests withholding a declared body do not block `/healthz`; goroutine count returns to baseline |
 | Slow client | Per-client queue, write deadline | stalled reader: own drops grow, fast client and RTPS fake keep full rate |
 | Plaintext LAN sniffing | TLS or explicit insecure opt-in | non-loopback without TLS or opt-in -> exit 2 |
 | Accidental exposure | Loopback-first, non-loopback needs token + origin + TLS/opt-in | flag matrix tests |
@@ -200,3 +207,7 @@ assuming it.
   certificate or a reverse proxy.
 - A loopback bind without a token trusts every local process and every
   allowlisted origin. Documented, not mitigated.
+- A persistent attacker that keeps about `max-clients + 16` connections in
+  the header phase can hold every `LimitListener` slot, delaying other
+  clients (including `/healthz`) by up to `ReadHeaderTimeout` (3s) per
+  cycle. Established WebSockets are unaffected. Bounded, not eliminated.
