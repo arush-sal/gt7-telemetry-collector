@@ -40,9 +40,9 @@ params:
   navbar:
     displayLogo: true
     logo:
-      path: images/logo.svg
-      width: 28
-      height: 28
+      path: images/logo.webp
+      width: 36
+      height: 36
   footer:
     displayCopyright: true
     displayPoweredBy: true
