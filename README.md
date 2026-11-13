@@ -338,6 +338,9 @@ func (s *Source) Play(ctx context.Context, recvPort uint16, speed float64,
 
 For example, `source.Play(ctx, uint16(protocol.RecvPort), 1.0, pipeline.Handle)`
 replays matching UDP payloads at their original cadence; `2.0` doubles the speed.
+Build that pipeline with
+`ingest.NewPipeline(nil, pub, ingest.WithSource(telemetryv1.Source_SOURCE_REPLAY))`;
+frames are otherwise labelled `SOURCE_LIVE`.
 Use `math.Inf(1)` for maximum-speed playback. The collector command has no replay
 flag; use the library or RTPS `--replay-file`.
 

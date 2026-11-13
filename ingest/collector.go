@@ -27,6 +27,8 @@ type Pipeline struct {
 	dedup *protocol.Deduper // persistent dedup state
 	pub   Publisher
 
+	source telemetryv1.Source // stamped on every frame; set at construction, read-only after
+
 	seq     atomic.Uint64 // frames published (also the frame sequence number)
 	valid   atomic.Uint64 // valid GT7 packets (decrypted with correct magic), before dedup
 	foreign atomic.Uint64 // wrong-magic packets (foreign/corrupt, not a GT7 packet)
@@ -47,11 +49,24 @@ type Counters struct {
 	Gaps      uint64
 }
 
+// Option configures a Pipeline at construction.
+type Option func(*Pipeline)
+
+// WithSource sets the Source stamped on every frame (default SOURCE_LIVE). Use SOURCE_REPLAY when
+// feeding replay.Source.Play into Handle.
+func WithSource(s telemetryv1.Source) Option {
+	return func(p *Pipeline) { p.source = s }
+}
+
 // NewPipeline builds a pipeline that publishes to pub and, if raw is non-nil, tees each raw
 // (still-encrypted) packet to it for debugging.
-func NewPipeline(raw rawsink.RawSink, pub Publisher) *Pipeline {
+func NewPipeline(raw rawsink.RawSink, pub Publisher, opts ...Option) *Pipeline {
 	dd := protocol.NewDeduper()
-	return &Pipeline{raw: raw, dedup: &dd, pub: pub}
+	p := &Pipeline{raw: raw, dedup: &dd, pub: pub, source: telemetryv1.Source_SOURCE_LIVE}
+	for _, o := range opts {
+		o(p)
+	}
+	return p
 }
 
 // Handle processes one received packet: tee raw -> decrypt -> dedup -> decode -> map -> publish.
@@ -102,7 +117,7 @@ func (p *Pipeline) Handle(payload []byte, recvTS time.Time) {
 		RecvTime: recvTS,
 		Sequence: seq,
 		Gap:      gap,
-		Source:   telemetryv1.Source_SOURCE_LIVE,
+		Source:   p.source,
 	})
 	p.pub.Publish(frame)
 }

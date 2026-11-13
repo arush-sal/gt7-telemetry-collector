@@ -158,3 +158,28 @@ func TestPipelineDropsShort(t *testing.T) {
 		t.Errorf("published %d frames, want 0", len(pub.frames))
 	}
 }
+
+// firstFrameSource feeds one fixture through p and returns the published frame's Source.
+func firstFrameSource(t *testing.T, p *Pipeline, pub *fakePub) telemetryv1.Source {
+	t.Helper()
+	p.Handle(readFix(t, "packet_00.bin"), time.Unix(0, 0))
+	if len(pub.frames) != 1 {
+		t.Fatalf("published %d frames, want 1", len(pub.frames))
+	}
+	return pub.frames[0].Source
+}
+
+func TestPipelineDefaultSourceLive(t *testing.T) {
+	pub := &fakePub{}
+	if got := firstFrameSource(t, NewPipeline(nil, pub), pub); got != telemetryv1.Source_SOURCE_LIVE {
+		t.Fatalf("source %v, want SOURCE_LIVE", got)
+	}
+}
+
+func TestPipelineWithSourceReplay(t *testing.T) {
+	pub := &fakePub{}
+	p := NewPipeline(nil, pub, WithSource(telemetryv1.Source_SOURCE_REPLAY))
+	if got := firstFrameSource(t, p, pub); got != telemetryv1.Source_SOURCE_REPLAY {
+		t.Fatalf("source %v, want SOURCE_REPLAY", got)
+	}
+}

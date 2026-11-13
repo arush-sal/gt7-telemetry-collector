@@ -172,7 +172,8 @@ func main() {
 	defer source.Close()
 
 	pub := &counter{}
-	pipeline := ingest.NewPipeline(nil, pub)
+	pipeline := ingest.NewPipeline(nil, pub,
+		ingest.WithSource(telemetryv1.Source_SOURCE_REPLAY))
 	// 1.0 replays at the original cadence, 2.0 doubles the speed.
 	if err := source.Play(context.Background(), uint16(protocol.RecvPort),
 		math.Inf(1), pipeline.Handle); err != nil {
@@ -181,6 +182,9 @@ func main() {
 	log.Printf("frames: %d, counters: %+v", pub.n, pipeline.Counters())
 }
 ```
+
+Frames are labelled `SOURCE_LIVE` unless you pass
+`ingest.WithSource(telemetryv1.Source_SOURCE_REPLAY)`, as above.
 
 `Play` skips traffic not addressed to `recvPort` (DNS, heartbeats to the send
 port, other UDP), so counters match a live run. `math.Inf(1)` plays at maximum
