@@ -67,7 +67,7 @@ func receiveThree(t *testing.T, frames <-chan *telemetryv1.TelemetryFrame) {
 }
 
 func TestUnixPublisher(t *testing.T) {
-	dir, err := os.MkdirTemp(".", "u")
+	dir, err := os.MkdirTemp("", "u")
 	if err != nil {
 		t.Fatal(err)
 	}
