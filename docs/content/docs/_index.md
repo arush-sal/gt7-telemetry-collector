@@ -41,6 +41,10 @@ On SIGINT or SIGTERM the receiver stops first, then the publisher is canceled,
 then the raw sink drains and closes before final counters are logged. Queued
 frames are not guaranteed delivery during shutdown.
 
+An optional read-only WebSocket stream (`--ws-listen`) can also serve live brake
+and throttle to a browser; it is off by default. See
+[Browser streaming]({{< relref "browser-streaming" >}}).
+
 ## Quick start
 
 ```sh
@@ -58,10 +62,11 @@ does; offline processing can replay a saved capture through the
 - [Install]({{< relref "install" >}}): release archives, `go install`, verifying releases
 - [CLI reference]({{< relref "cli" >}}): every flag, defaults, exit codes
 - [Transports]({{< relref "transports" >}}): gRPC, Unix socket and HTTP(S) wire formats
+- [Browser streaming]({{< relref "browser-streaming" >}}): optional read-only WebSocket with brake and throttle for browsers
 - [Library]({{< relref "library" >}}): the Go packages and usage examples
 - [Raw dumps]({{< relref "raw-dumps" >}}): the pcap format and replaying
 - [Protocol]({{< relref "protocol" >}}): reverse-engineered GT7 packet facts
-- [Security]({{< relref "security" >}}): tokens, plaintext warning, signed releases
+- [Security]({{< relref "security" >}}): tokens, plaintext warning, browser stream, signed releases
 - [Contributing]({{< relref "contributing" >}}): dev setup, CI, releases, license
 - [API reference on pkg.go.dev](https://pkg.go.dev/github.com/arush-sal/gt7-telemetry-collector)
 

@@ -1,6 +1,6 @@
 ---
 title: Contributing
-weight: 9
+weight: 10
 ---
 
 ## Development setup
@@ -72,7 +72,10 @@ git tag -s v0.1.0 -m "v0.1.0"
 git push origin v0.1.0
 ```
 
-Tags containing a pre-release suffix are published as pre-releases.
+Tags containing a pre-release suffix are published as pre-releases. The
+release workflow first verifies the tag: it must match `vX.Y.Z` or
+`vX.Y.Z-rc.N` and point at a commit on `master` history, otherwise nothing is
+built or published.
 
 ## License
 

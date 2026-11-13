@@ -1,6 +1,6 @@
 ---
 title: Security
-weight: 8
+weight: 9
 ---
 
 ## Token authentication
@@ -43,6 +43,43 @@ validate the bearer token on the server.
 
 Raw dumps contain the still-encrypted packets, but the GT7 key is public, so
 anyone with a dump can decrypt it. Treat dump files as plain telemetry data.
+
+## Browser stream
+
+The optional WebSocket listener (`--ws-listen`) is off by default. When enabled
+it is read-only and serves brake and throttle only. Full model:
+[Browser streaming]({{< relref "browser-streaming" >}}) and
+[ADR 0003](https://github.com/arush-sal/gt7-telemetry-collector/blob/master/docs/adr/0003-websocket-threat-model.md).
+
+- **Bind:** the host must be an IP literal or `localhost`. Loopback is the safe
+  default; `:port`, `0.0.0.0`, `::` and other non-loopback IPs require
+  `GT7_WS_TOKEN` and either `--ws-tls-cert`/`--ws-tls-key` or the explicit
+  `--ws-allow-insecure-lan` (which logs a plaintext warning).
+- **Origin:** `--ws-origin` is mandatory and matched exactly (no wildcards).
+  A missing, `null` or unlisted `Origin` gets HTTP 403 before the upgrade.
+  Browsers do not apply same-origin policy to WebSockets, so this check is the
+  protection against hostile websites.
+- **Host:** on loopback binds, any `Host` other than a loopback IP literal or
+  `localhost` gets HTTP 421 (DNS rebinding), on every path.
+- **Token:** `GT7_WS_TOKEN` (environment only, 32..256 characters from
+  `A-Za-z0-9._~-`; generate with `openssl rand -hex 32`). Browsers send it as a
+  second subprotocol, `["gt7.inputs.v1", "gt7.token." + token]`. It is never
+  accepted in the URL, never echoed and compared in constant time. It is
+  redacted from configuration and runtime errors, and `Sec-WebSocket-Protocol`
+  is never logged. The token is visible to devtools on the page and to any
+  TLS-terminating proxy; it grants read-only access to input telemetry.
+- **TLS:** Go default TLS config (minimum TLS 1.2). Browsers do not trust
+  self-signed certificates. A proxy that terminates TLS must not log
+  `Sec-WebSocket-Protocol`.
+- **Limits:** about 8 KiB of headers (`net/http` adds a 4 KiB allowance), 3s header timeout, no request bodies, 4 clients
+  by default (max 64) with slots taken only after Origin, Host and token
+  pass, bounded per-client queues and write deadlines, 1 KiB read limit (any
+  data message closes the connection with 1008), ping every 10s.
+- **No CORS headers**, no access log, and `/healthz` reveals nothing beyond
+  `{"status":"ok"}`.
+
+A loopback bind without a token trusts every local process and every
+allowlisted origin.
 
 ## Signed releases, SBOM and provenance
 

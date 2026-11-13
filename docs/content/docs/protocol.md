@@ -1,6 +1,6 @@
 ---
 title: Protocol
-weight: 7
+weight: 8
 ---
 
 These are reverse-engineered facts about the GT7 telemetry protocol, as

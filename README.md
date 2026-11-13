@@ -20,6 +20,7 @@
 <a href="#packages">Packages</a> &middot;
 <a href="#raw-packet-dumps-pcap">Raw packet dumps</a> &middot;
 <a href="#transports">Transports</a> &middot;
+<a href="#browser-streaming-optional">Browser streaming</a> &middot;
 <a href="#faq">FAQ</a> &middot;
 <a href="#license">License</a>
 
@@ -203,7 +204,7 @@ These are the flags implemented by [`parseFlags`](cmd/gt7-collector/main.go).
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--ps5` | Required | Literal PS5 IP address. |
-| `--rtps` | `localhost:50051` | RTPS target: bare `host:port`, `grpc://`, `unix:///`, or HTTP(S) URL. |
+| `--rtps` | `localhost:50051` | RTPS target: bare `host:port`, `grpc://`, `unix:///`, HTTP(S) URL, or `none` (requires `--ws-listen`). |
 | `--rtps-token` | Empty (uses `INGEST_TOKEN`) | Optional ingest bearer token; prefer the environment variable to keep it out of `ps`. |
 | `--recv-port` | `33740` | Local UDP receive port; 1..65535. |
 | `--send-port` | `33739` | Console UDP heartbeat destination port; 1..65535. |
@@ -212,6 +213,7 @@ These are the flags implemented by [`parseFlags`](cmd/gt7-collector/main.go).
 | `--raw-buffer` | `1024` | Positive raw packet buffer depth. |
 | `--pub-buffer` | `1024` | Positive outbound frame buffer depth; oldest frame dropped when full. |
 | `--log-level` | `info` | `debug`, `info`, `warn`, or `error`. |
+| `--ws-*` | Disabled | Optional browser WebSocket stream; see [Browser streaming (optional)](#browser-streaming-optional) and `--help`. |
 
 ## Raw packet dumps (pcap)
 
@@ -315,6 +317,56 @@ func consume(conn net.Conn) error {
 
 The snippet uses `net`, `errors`, `io`, `fmt`, and
 `github.com/arush-sal/gt7-telemetry-collector/transport`.
+
+## Browser streaming (optional)
+
+The collector can also serve live driver inputs to a browser over a read-only
+WebSocket (contract `gt7.inputs.v1`). It is off by default: without
+`--ws-listen` nothing is bound and behavior is unchanged. A browser cannot
+accept inbound connections, so the collector listens and the browser connects.
+Enabling it stores nothing; `--rawdump-dir` is unaffected. Full reference:
+[Browser streaming docs](https://arush-sal.github.io/gt7-telemetry-collector/docs/browser-streaming/).
+
+```sh
+# WS only (no RTPS), loopback
+gt7-collector --ps5=192.168.1.50 --rtps=none \
+  --ws-listen=127.0.0.1:8765 --ws-origin=http://localhost:5173
+
+# RTPS and WS together, with a token
+export GT7_WS_TOKEN="$(openssl rand -hex 32)"
+gt7-collector --ps5=192.168.1.50 --rtps=localhost:50051 \
+  --ws-listen=127.0.0.1:8765 --ws-origin=https://trainer.example.com
+```
+
+- **Data:** `inputs.brake` and `inputs.throttle`, percent 0..100, or `null` for
+  no reading. **Steering is unavailable** (`inputs.steering` is always `null`):
+  no verified driver steering field exists, so only brake and throttle are sent.
+- **URL:** `ws://127.0.0.1:8765/v1/stream` (`wss://` with `--ws-tls-cert` and
+  `--ws-tls-key`). `GET /healthz` returns `{"status":"ok"}`.
+- **Origin:** `--ws-origin` is required and matched exactly (repeat for more).
+  A wrong origin is rejected with HTTP 403; browsers only see close code 1006.
+- **Token:** set `GT7_WS_TOKEN` (env only, 32..256 chars of `A-Za-z0-9._~-`).
+  Send it as a subprotocol, never in the URL (query tokens are ignored):
+
+  ```js
+  new WebSocket("ws://127.0.0.1:8765/v1/stream", ["gt7.inputs.v1", "gt7.token." + token]);
+  ```
+
+- **Binding:** loopback by default. A non-loopback bind (`:8765`, `0.0.0.0`, a LAN
+  IP) requires `GT7_WS_TOKEN` and either TLS or `--ws-allow-insecure-lan`; open
+  the TCP port in your firewall only for the hosts that need it.
+- **HTTPS pages:** a page on HTTPS connecting to a local or LAN collector involves
+  mixed-content rules and Chrome Local Network Access prompts. This is **not yet
+  verified** for HTTPS origins in any browser; see the validation log.
+- **Diagnostics:** the 10 second stats line adds `ws_clients`, `ws_accepted`,
+  `ws_rejected_{origin,token,subprotocol,capacity,host}`, `ws_sent`,
+  `ws_dropped`, `ws_slow_closed`, `ws_invalid_inputs`, `ws_stale_discarded` and
+  `ws_source_state` (`waiting_for_source`, `source_live`, `source_stale`).
+  `ws_dropped` counts samples evicted from slow clients' queues; RTPS
+  `pub_dropped` stays separate.
+- `--rtps=none` requires `--ws-listen`; it rejects `--rtps-token` and ignores
+  `INGEST_TOKEN`. To roll back, remove every `--ws-*` flag and, if you used
+  `--rtps=none`, restore an RTPS target.
 
 ## FAQ
 

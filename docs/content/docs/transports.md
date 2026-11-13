@@ -11,6 +11,10 @@ The collector dials the consumer (push model). `--rtps` selects the transport:
 | `unix:///absolute/path.sock` | Unix stream socket; four-byte big-endian payload length followed by protobuf bytes. |
 | `http://host/path` or `https://host/path` | One long-lived streaming POST to the URL path, `Content-Type: application/x-ndjson`; one protojson frame per line. |
 
+Browsers cannot accept inbound connections, so the optional browser stream is
+the reverse: the collector listens and the browser dials it. See
+[Browser streaming]({{< relref "browser-streaming" >}}).
+
 The schema is `gt7.telemetry.v1.TelemetryFrame`
 ([`proto/gt7/telemetry/v1/telemetry.proto`](https://github.com/arush-sal/gt7-telemetry-collector/blob/master/proto/gt7/telemetry/v1/telemetry.proto)).
 

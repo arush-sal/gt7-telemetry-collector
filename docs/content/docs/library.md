@@ -1,6 +1,6 @@
 ---
 title: Library
-weight: 5
+weight: 6
 ---
 
 The module is `github.com/arush-sal/gt7-telemetry-collector` (Go 1.27.4+).
