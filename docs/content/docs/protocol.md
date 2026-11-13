@@ -1,4 +1,7 @@
-# Protocol
+---
+title: Protocol
+weight: 7
+---
 
 These are reverse-engineered facts about the GT7 telemetry protocol, as
 implemented in the `protocol` package. They are not an official specification.

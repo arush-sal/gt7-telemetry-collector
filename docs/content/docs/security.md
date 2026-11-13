@@ -1,4 +1,7 @@
-# Security
+---
+title: Security
+weight: 8
+---
 
 ## Token authentication
 
@@ -15,9 +18,10 @@ strings so credentials cannot be smuggled into the URL.
 
 ## Plaintext transports
 
-!!! warning
-    gRPC uses plaintext transport. A bearer token sent over `http://`,
-    `grpc://` or a bare `host:port` travels unencrypted.
+{{< callout type="warning" >}}
+gRPC uses plaintext transport. A bearer token sent over `http://`,
+`grpc://` or a bare `host:port` travels unencrypted.
+{{< /callout >}}
 
 The collector logs a startup warning when a token is used with one of those
 targets. Use HTTPS when the token must be encrypted in transit.
@@ -45,11 +49,11 @@ anyone with a dump can decrypt it. Treat dump files as plain telemetry data.
 Every release artifact (archives, `checksums.txt` and SBOMs) has a keyless
 Sigstore bundle, and archives carry an SPDX SBOM. The release workflow also
 publishes SLSA build provenance attestations. See
-[Install](install.md#verify-a-release) for the `cosign verify-blob` and
+[Install]({{< relref "install#verify-a-release" >}}) for the `cosign verify-blob` and
 `gh attestation verify` commands.
 
 CI scans with Trivy, zizmor (GitHub Actions audit) and govulncheck; see
-[Contributing](contributing.md#ci-workflows).
+[Contributing]({{< relref "contributing#ci-workflows" >}}).
 
 ## Reporting a vulnerability
 

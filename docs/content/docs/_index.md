@@ -1,4 +1,7 @@
-# gt7-telemetry-collector
+---
+title: Overview
+weight: 1
+---
 
 From PS5 UDP packets to canonical telemetry frames, ready for RTPS.
 
@@ -48,18 +51,18 @@ gt7-collector --ps5=192.168.1.50 --rtps=localhost:50051
 Allow inbound UDP on the receive port. Add `--rawdump-dir=./rawdump` to capture
 raw packets. gRPC uses plaintext transport. Does it need a PS5? Live collection
 does; offline processing can replay a saved capture through the
-[`replay`](library.md#replay-a-capture) package.
+[`replay`]({{< relref "library#replay-a-capture" >}}) package.
 
 ## Quick links
 
-- [Install](install.md): release archives, `go install`, verifying releases
-- [CLI reference](cli.md): every flag, defaults, exit codes
-- [Transports](transports.md): gRPC, Unix socket and HTTP(S) wire formats
-- [Library](library.md): the Go packages and usage examples
-- [Raw dumps](raw-dumps.md): the pcap format and replaying
-- [Protocol](protocol.md): reverse-engineered GT7 packet facts
-- [Security](security.md): tokens, plaintext warning, signed releases
-- [Contributing](contributing.md): dev setup, CI, releases, license
+- [Install]({{< relref "install" >}}): release archives, `go install`, verifying releases
+- [CLI reference]({{< relref "cli" >}}): every flag, defaults, exit codes
+- [Transports]({{< relref "transports" >}}): gRPC, Unix socket and HTTP(S) wire formats
+- [Library]({{< relref "library" >}}): the Go packages and usage examples
+- [Raw dumps]({{< relref "raw-dumps" >}}): the pcap format and replaying
+- [Protocol]({{< relref "protocol" >}}): reverse-engineered GT7 packet facts
+- [Security]({{< relref "security" >}}): tokens, plaintext warning, signed releases
+- [Contributing]({{< relref "contributing" >}}): dev setup, CI, releases, license
 - [API reference on pkg.go.dev](https://pkg.go.dev/github.com/arush-sal/gt7-telemetry-collector)
 
 This is a clean-room Go implementation of the GT7 wire protocol. Only protocol

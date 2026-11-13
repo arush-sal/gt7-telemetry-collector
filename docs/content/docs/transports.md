@@ -1,4 +1,7 @@
-# Transports
+---
+title: Transports
+weight: 4
+---
 
 The collector dials the consumer (push model). `--rtps` selects the transport:
 
@@ -30,7 +33,7 @@ HTTP(S) sends `Authorization: Bearer <token>` on the streaming POST. gRPC sends
 Unix sockets ignore the token and rely on socket file permissions. Network
 tokens must follow RFC 6750 `b64token` syntax: one or more ASCII letters, digits,
 or `-._~+/`, followed by optional `=` padding. Whitespace is rejected.
-See [Security](security.md).
+See [Security]({{< relref "security" >}}).
 
 ## Delivery behavior
 
@@ -129,9 +132,10 @@ func ingest(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-!!! note
-    The token is compared in constant time. Reject requests outright when no token is
-    configured if the listener is reachable from untrusted networks.
+{{< callout type="info" >}}
+The token is compared in constant time. Reject requests outright when no token is
+configured if the listener is reachable from untrusted networks.
+{{< /callout >}}
 
 ### gRPC
 

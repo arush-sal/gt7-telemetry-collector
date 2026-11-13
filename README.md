@@ -7,11 +7,11 @@
 [![Tests](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/test.yml/badge.svg)](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/test.yml)
 [![Security](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/security.yml/badge.svg)](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/security.yml)
 [![Release](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/release.yml/badge.svg)](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/release.yml)
-[![Docs](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/docs.yml/badge.svg)](https://arush-sal.github.io/gt7-telemetry-collector/)
+[![Hugo Docs](https://github.com/arush-sal/gt7-telemetry-collector/actions/workflows/docs.yml/badge.svg)](https://arush-sal.github.io/gt7-telemetry-collector/)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue)](LICENSE)
 [![Go Reference](https://img.shields.io/badge/Go-Reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/arush-sal/gt7-telemetry-collector)
 
-<a href="https://arush-sal.github.io/gt7-telemetry-collector/">Documentation</a> &middot;
+<a href="https://arush-sal.github.io/gt7-telemetry-collector/docs/">Documentation</a> &middot;
 <a href="#install">Install</a> &middot;
 <a href="#quick-start">Quick start</a> &middot;
 <a href="#how-it-works">How it works</a> &middot;
@@ -28,6 +28,9 @@ Receive encrypted packets from a PS5, decrypt and deduplicate them, and stream
 canonical protobuf frames to a Real Time Processing System (RTPS) over gRPC,
 a Unix stream socket, or HTTP(S).
 Optional raw dumps preserve received bytes for debugging and offline analysis.
+
+Documentation uses [Hugo + Hextra](https://arush-sal.github.io/gt7-telemetry-collector/).
+See the [contributor guide](https://arush-sal.github.io/gt7-telemetry-collector/docs/contributing/) to build it locally.
 
 ## Install
 

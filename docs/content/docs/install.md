@@ -1,4 +1,7 @@
-# Install
+---
+title: Install
+weight: 2
+---
 
 ## GitHub Releases
 
@@ -37,4 +40,4 @@ gh attestation verify X --repo arush-sal/gt7-telemetry-collector
 sha256sum -c --ignore-missing checksums.txt
 ```
 
-See [Security](security.md) for what each check proves.
+See [Security]({{< relref "security" >}}) for what each check proves.

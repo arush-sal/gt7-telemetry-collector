@@ -3,8 +3,7 @@ name: Build
 on:
   push:
     branches: [master]
-  pull_request:
-    branches: [master]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,15 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  security:
-    name: Security
-    uses: ./.github/workflows/security.yml
-    permissions:
-      contents: read
-
   snapshot:
     name: GoReleaser snapshot
-    needs: security
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -35,11 +27,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Set up Go
+      # zizmor treats every GoReleaser invocation as publishing. This job only
+      # builds unsigned snapshots (--skip=sign,publish), has read-only permissions,
+      # and uploads a one-day artifact. Release jobs disable all caches.
+      - name: Set up Go # zizmor: ignore[cache-poisoning]
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-          cache: false
+          cache: true
+          cache-dependency-path: go.sum
 
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3

@@ -1,4 +1,7 @@
-# Library
+---
+title: Library
+weight: 5
+---
 
 The module is `github.com/arush-sal/gt7-telemetry-collector` (Go 1.27.4+).
 Full API documentation is on

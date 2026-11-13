@@ -6,13 +6,18 @@ on:
   pull_request:
     branches: [master]
   workflow_call:
+    inputs:
+      cache:
+        description: Restore and save dependency caches (disable for releases)
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 concurrency:
   group: tests-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -32,12 +37,14 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: ${{ toJSON(inputs.cache) != 'false' }}
           cache-dependency-path: go.sum
 
       - name: Run linter
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.15.0
+          skip-cache: ${{ toJSON(inputs.cache) == 'false' }}
           args: --timeout=5m
 
       - name: Run go vet

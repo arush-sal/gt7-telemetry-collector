@@ -1,11 +1,18 @@
 name: Security
 
-# On push/PR this runs via build.yml (workflow_call) as the build gate; standalone only weekly
-# and on demand, so it isn't run twice per push.
 on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
   schedule:
     - cron: "17 4 * * 1"
   workflow_call:
+    inputs:
+      cache:
+        description: Restore and save dependency caches (disable for releases)
+        type: boolean
+        default: true
   workflow_dispatch:
 
 permissions:
@@ -13,7 +20,7 @@ permissions:
 
 concurrency:
   group: security-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   TRIVY_SKIP_VERSION_CHECK: "true"
@@ -54,7 +61,8 @@ jobs:
           format: table
           severity: HIGH,CRITICAL
           exit-code: "1"
-          cache: false
+          version: v0.76.2
+          cache: ${{ toJSON(inputs.cache) != 'false' }}
           timeout: 10m
 
   zizmor:
@@ -96,6 +104,7 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: ${{ toJSON(inputs.cache) != 'false' }}
           cache-dependency-path: go.sum
 
       - name: Install govulncheck

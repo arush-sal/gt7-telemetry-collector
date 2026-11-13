@@ -1,4 +1,7 @@
-# Contributing
+---
+title: Contributing
+weight: 9
+---
 
 ## Development setup
 
@@ -36,21 +39,26 @@ the `revive` `exported` rule).
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | `test.yml` | push and PR to `master`, reusable | golangci-lint, `go vet`, `go test -race` with coverage. |
-| `security.yml` | push and PR to `master`, weekly, reusable | Trivy filesystem scans, zizmor audit of workflows, govulncheck. |
-| `build.yml` | push and PR to `master` | Security checks, then a GoReleaser snapshot build. |
+| `security.yml` | push and PR to `master`, weekly, manual, reusable | Trivy filesystem scans, zizmor audit of workflows, govulncheck. |
+| `build.yml` | push to `master`, manual | GoReleaser snapshot build. |
 | `release.yml` | tag `v*` | Security and tests, then GoReleaser, then build provenance attestation. |
-| `docs.yml` | `docs/**`, `mkdocs.yml` changes | Trivy scan, `mkdocs build --strict`, deploy to GitHub Pages (master only). |
+| `docs.yml` | push to `master` changing `docs/**` or the workflow, manual | Hugo build, deploy to GitHub Pages (master only). |
 
 All actions are pinned by full commit SHA.
 
 ## Building the docs
 
+Install **Hugo extended v0.169.0** and Go. The Hextra theme is pinned to
+**v0.13.0** in the separate `docs/go.mod` module; root Go commands exclude it.
+
 ```sh
-python3 -m venv .venv && . .venv/bin/activate
-pip install -r docs/requirements.txt
-mkdocs serve          # live preview
-mkdocs build --strict # what CI runs; output goes to site/
+hugo server --source docs       # live preview
+hugo --gc --minify --source docs # CI build; output goes to docs/public/
+hugo --printPathWarnings --source docs # check output path collisions
 ```
+
+Pull requests run only tests and security checks. Releases call both reusable
+workflows with `cache: false`; release builds do not restore or save caches.
 
 ## Releasing
 

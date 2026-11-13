@@ -1,4 +1,7 @@
-# Raw dumps
+---
+title: Raw dumps
+weight: 6
+---
 
 Set `--rawdump-dir` to open one **`raw-<unix>.pcap`** file per run, where
 `<unix>` is the startup Unix timestamp in seconds. The directory is created if
@@ -6,7 +9,7 @@ needed (mode 0755; the file is 0644, truncated if it exists).
 
 The format is classic pcap with nanosecond timestamps and Ethernet link type, so
 dumps open in Wireshark and tcpdump and replay through the
-[`replay`](library.md#replay-a-capture) package and RTPS `--replay-file`. The
+[`replay`]({{< relref "library#replay-a-capture" >}}) package and RTPS `--replay-file`. The
 still-encrypted UDP wire bytes are preserved.
 
 ## Synthetic headers
@@ -46,5 +49,5 @@ source, err := replay.Open("rawdump/raw-1700000000.pcap")
 
 `replay.Open` selects the reader by the file's magic bytes, not its extension,
 so a pcapng saved under a `.pcap` name still opens. See
-[Library](library.md#replay-a-capture) for a complete example. The collector
+[Library]({{< relref "library#replay-a-capture" >}}) for a complete example. The collector
 command has no replay flag.

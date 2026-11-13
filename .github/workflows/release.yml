@@ -16,12 +16,16 @@ jobs:
   security:
     name: Security
     uses: ./.github/workflows/security.yml
+    with:
+      cache: false
     permissions:
       contents: read
 
   test:
     name: Tests
     uses: ./.github/workflows/test.yml
+    with:
+      cache: false
     permissions:
       contents: read
 
@@ -31,9 +35,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: write
-      id-token: write
-      attestations: write
+      contents: write # Publish release archives, checksums, signatures and SBOMs.
+      id-token: write # Obtain OIDC identity for keyless signing and provenance.
+      attestations: write # Publish build provenance attestations.
 
     steps:
       - name: Checkout repository
