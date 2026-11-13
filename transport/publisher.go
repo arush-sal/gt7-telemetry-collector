@@ -24,6 +24,7 @@ const (
 // for concurrent Publish callers.
 type Publisher struct {
 	addr    string
+	token   string
 	dial    func(context.Context) (stream, error)
 	ch      chan *telemetryv1.TelemetryFrame
 	dropped atomic.Uint64
@@ -35,7 +36,7 @@ type Publisher struct {
 func NewPublisher(addr string, bufSize int, dialOpts ...grpc.DialOption) *Publisher {
 	return &Publisher{
 		addr: addr,
-		dial: grpcDial(addr, dialOpts),
+		dial: grpcDial(addr, dialOpts, ""),
 		ch:   make(chan *telemetryv1.TelemetryFrame, bufSize),
 		log:  zap.NewNop(),
 	}
@@ -125,6 +126,11 @@ func (p *Publisher) run(ctx context.Context, attempt func(context.Context) (bool
 // streamOnce opens one transport stream and forwards frames until ctx is cancelled or a send fails. It
 // reports whether at least one frame was sent (used to reset backoff).
 func (p *Publisher) streamOnce(ctx context.Context) (sent bool, err error) {
+	defer func() {
+		if err != nil && p.token != "" {
+			err = redactedError{err: err, token: p.token}
+		}
+	}()
 	s, err := p.dial(ctx)
 	if err != nil {
 		return false, err

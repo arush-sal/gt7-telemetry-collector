@@ -2,15 +2,21 @@ package main
 
 import (
 	"context"
-	"github.com/arush-sal/gt7-telemetry-collector/replay"
-	"go.uber.org/zap"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/arush-sal/gt7-telemetry-collector/replay"
+	"github.com/spf13/pflag"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestParseFlags(t *testing.T) {
+	t.Setenv("GARAGE_INGEST_TOKEN", "")
 	tests := []struct {
 		name    string
 		args    []string
@@ -68,4 +74,84 @@ func TestRunCreatesPCAP(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
+}
+
+func TestTokenPrecedence(t *testing.T) {
+	for _, tt := range []struct {
+		name, env, flag, want string
+		supplied              bool
+	}{
+		{name: "none"},
+		{name: "environment", env: "env-secret", want: "env-secret"},
+		{name: "flag", env: "env-secret", flag: "flag-secret", want: "flag-secret", supplied: true},
+		{name: "empty flag falls back", env: "env-secret", want: "env-secret", supplied: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("GARAGE_INGEST_TOKEN", tt.env)
+			args := []string{"--ps5=127.0.0.1"}
+			if tt.supplied {
+				args = append(args, "--rtps-token="+tt.flag)
+			}
+			cfg, err := parseFlags(args)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.rtpsToken != tt.want {
+				t.Fatal("incorrect token precedence")
+			}
+		})
+	}
+}
+
+func TestPlaintextTokenWarning(t *testing.T) {
+	for _, target := range []string{"localhost:50051", "grpc://localhost:50051", "http://localhost/ingest", "https://localhost/ingest", "unix:///tmp/ingest.sock", "unix:/tmp/ingest.sock", "HTTP://localhost/ingest", "GRPC://localhost:50051", "HTTPS://localhost/ingest"} {
+		for _, token := range []string{"", "secret-token"} {
+			t.Run(target+"/token="+fmt.Sprint(token != ""), func(t *testing.T) {
+				core, logs := observer.New(zap.WarnLevel)
+				warnPlaintextToken(config{rtps: target, rtpsToken: token}, zap.New(core))
+				want := token != "" && !strings.HasPrefix(strings.ToLower(target), "https:") && !strings.HasPrefix(target, "unix:")
+				if (logs.Len() == 1) != want {
+					t.Fatalf("warning count = %d, want warning %v", logs.Len(), want)
+				}
+				if strings.Contains(fmt.Sprint(logs.All()), "secret-token") {
+					t.Fatal("token leaked in logs")
+				}
+			})
+		}
+	}
+}
+
+func TestTokenNotInParseError(t *testing.T) {
+	const token = "flag-secret"
+	_, err := parseFlags([]string{"--ps5=127.0.0.1", "--rtps-token=" + token, token})
+	if err == nil || strings.Contains(err.Error(), token) {
+		t.Fatal("token leaked in flag error")
+	}
+}
+
+func TestTokenPreservesHelp(t *testing.T) {
+	_, err := parseFlags([]string{"--rtps-token=flag-secret", "--help"})
+	if !errors.Is(err, pflag.ErrHelp) {
+		t.Fatalf("help error = %v, want pflag.ErrHelp", err)
+	}
+}
+
+func TestTokenRedactionBeforeParsing(t *testing.T) {
+	for _, tt := range []struct {
+		env  string
+		args []string
+	}{
+		{"secret", []string{"--heartbeat=secret"}},
+		{"", []string{"--heartbeat=secret", "--rtps-token=secret"}},
+		{"", []string{"--heartbeat=secret", "--rtps-token", "secret"}},
+		{"env-secret", []string{"--heartbeat=env-secret", "--rtps-token=flag-secret"}},
+		{"env-secret", []string{"--heartbeat=flag-secret", "--rtps-token=flag-secret"}},
+		{"", []string{"--heartbeat=secret", "--rtps-token=secret", "--rtps-token=other"}},
+	} {
+		t.Setenv("GARAGE_INGEST_TOKEN", tt.env)
+		_, err := parseFlags(tt.args)
+		if err == nil || strings.Contains(err.Error(), "secret") {
+			t.Errorf("unsafe parse error: %v", err)
+		}
+	}
 }

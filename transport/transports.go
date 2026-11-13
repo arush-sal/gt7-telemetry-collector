@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -24,55 +25,93 @@ type stream interface {
 
 // New creates a buffered push publisher for a bare gRPC address, grpc://, unix:///, or HTTP(S) URL.
 // gRPC uses plaintext; Unix sockets carry length-prefixed protobuf, and HTTP carries protojson NDJSON.
-func New(target string, bufSize int, log *zap.Logger) (*Publisher, error) {
+// WithToken enables bearer authentication except on Unix sockets, which rely on file permissions.
+func New(target string, bufSize int, log *zap.Logger, opts ...Option) (*Publisher, error) {
 	if bufSize <= 0 {
 		return nil, fmt.Errorf("transport: buffer size must be positive")
 	}
-	var dial func(context.Context) (stream, error)
-	if !strings.Contains(target, "://") && !strings.HasPrefix(target, "unix:") {
-		if _, _, err := net.SplitHostPort(target); err != nil {
-			return nil, fmt.Errorf("transport: invalid gRPC address: %w", err)
-		}
-		dial = grpcDial(target, []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
-	} else {
-		u, err := url.Parse(target)
-		if err != nil {
-			return nil, err
-		}
-		switch u.Scheme {
-		case "grpc":
-			if u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
-				return nil, fmt.Errorf("transport: invalid gRPC URL")
-			}
-			if _, _, err := net.SplitHostPort(u.Host); err != nil {
-				return nil, fmt.Errorf("transport: invalid gRPC address: %w", err)
-			}
-			dial = grpcDial(u.Host, []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
-		case "unix":
-			if u.Host != "" || u.User != nil || !filepath.IsAbs(u.Path) || u.Path == "/" || u.RawQuery != "" || u.Fragment != "" {
-				return nil, fmt.Errorf("transport: unix URL requires an absolute socket path")
-			}
-			dial = func(ctx context.Context) (stream, error) {
-				c, err := (&net.Dialer{}).DialContext(ctx, "unix", u.Path)
-				if err != nil {
-					return nil, err
-				}
-				stop := context.AfterFunc(ctx, func() { _ = c.Close() })
-				return &unixStream{Conn: c, stop: stop}, nil
-			}
-		case "http", "https":
-			if u.Host == "" || u.Fragment != "" {
-				return nil, fmt.Errorf("transport: HTTP URL requires a host and no fragment")
-			}
-			dial = func(ctx context.Context) (stream, error) { return dialHTTP(ctx, target) }
-		default:
-			return nil, fmt.Errorf("transport: unsupported scheme %q", u.Scheme)
-		}
+	var cfg options
+	for _, opt := range opts {
+		opt(&cfg)
 	}
+	u, err := parseTarget(target)
+	if err != nil {
+		return nil, err
+	}
+	// Unix socket tokens are ignored and rely on socket permissions.
+	if u.Scheme != "unix" && cfg.token != "" && !validToken(cfg.token) {
+		return nil, fmt.Errorf("transport: token must be an RFC 6750 b64token")
+	}
+	var dial func(context.Context) (stream, error)
+	switch u.Scheme {
+	case "grpc":
+		dial = grpcDial(u.Host, []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}, cfg.token)
+	case "unix":
+		dial = func(ctx context.Context) (stream, error) {
+			c, err := (&net.Dialer{}).DialContext(ctx, "unix", u.Path)
+			if err != nil {
+				return nil, err
+			}
+			stop := context.AfterFunc(ctx, func() { _ = c.Close() })
+			return &unixStream{Conn: c, stop: stop}, nil
+		}
+	case "http", "https":
+		dial = func(ctx context.Context) (stream, error) { return dialHTTP(ctx, u.String(), cfg.token) }
+	}
+
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &Publisher{addr: target, dial: dial, ch: make(chan *telemetryv1.TelemetryFrame, bufSize), log: log}, nil
+	return &Publisher{addr: target, token: cfg.token, dial: dial, ch: make(chan *telemetryv1.TelemetryFrame, bufSize), log: log}, nil
+}
+
+// Plaintext reports whether a valid target uses unencrypted TCP (gRPC or HTTP).
+// Unix sockets return false because they rely on socket permissions.
+func Plaintext(target string) (bool, error) {
+	u, err := parseTarget(target)
+	if err != nil {
+		return false, err
+	}
+	return u.Scheme == "grpc" || u.Scheme == "http", nil
+}
+
+// parseTarget is shared by construction and transport classification. Its errors
+// never include input text, which may contain credentials or other secrets.
+func parseTarget(target string) (*url.URL, error) {
+	if !strings.Contains(target, "://") && !strings.HasPrefix(strings.ToLower(target), "unix:") {
+		if _, _, err := net.SplitHostPort(target); err != nil {
+			return nil, fmt.Errorf("transport: invalid gRPC address")
+		}
+		return &url.URL{Scheme: "grpc", Host: target}, nil
+	}
+	u, err := url.Parse(target)
+	if err != nil {
+		return nil, fmt.Errorf("transport: invalid target URL; use WithToken for credentials")
+	}
+	u.Scheme = strings.ToLower(u.Scheme)
+	switch u.Scheme {
+	case "grpc":
+		if u.User != nil || u.Path != "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+			return nil, fmt.Errorf("transport: invalid gRPC URL; use WithToken for credentials")
+		}
+		if _, _, err := net.SplitHostPort(u.Host); err != nil {
+			return nil, fmt.Errorf("transport: invalid gRPC address")
+		}
+	case "unix":
+		if u.Host != "" || u.User != nil || !filepath.IsAbs(u.Path) || u.Path == "/" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+			return nil, fmt.Errorf("transport: unix URL requires an absolute socket path")
+		}
+	case "http", "https":
+		if u.User != nil || u.RawQuery != "" || u.ForceQuery {
+			return nil, fmt.Errorf("transport: HTTP URL credentials and query strings are forbidden; use WithToken")
+		}
+		if u.Host == "" || u.Fragment != "" {
+			return nil, fmt.Errorf("transport: HTTP URL requires a host and no fragment")
+		}
+	default:
+		return nil, fmt.Errorf("transport: unsupported scheme")
+	}
+	return u, nil
 }
 
 type grpcStream struct {
@@ -83,11 +122,14 @@ type grpcStream struct {
 // Close releases the gRPC connection and its ingest stream.
 func (s *grpcStream) Close() error { return s.conn.Close() }
 
-func grpcDial(addr string, opts []grpc.DialOption) func(context.Context) (stream, error) {
+func grpcDial(addr string, opts []grpc.DialOption, token string) func(context.Context) (stream, error) {
 	return func(ctx context.Context) (stream, error) {
 		c, err := grpc.NewClient(addr, opts...)
 		if err != nil {
 			return nil, err
+		}
+		if token != "" {
+			ctx = metadata.AppendToOutgoingContext(ctx, AuthMetadataKey, BearerPrefix+token)
 		}
 		s, err := telemetryv1.NewTelemetryClient(c).Ingest(ctx)
 		if err != nil {
@@ -115,7 +157,7 @@ type httpStream struct {
 	result chan error
 }
 
-func dialHTTP(ctx context.Context, target string) (stream, error) {
+func dialHTTP(ctx context.Context, target, token string) (stream, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	reader, writer := io.Pipe()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, reader)
@@ -126,6 +168,9 @@ func dialHTTP(ctx context.Context, target string) (stream, error) {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-ndjson")
+	if token != "" {
+		req.Header.Set(AuthHeader, BearerPrefix+token)
+	}
 	s := &httpStream{writer: writer, cancel: cancel, result: make(chan error, 1)}
 	go func() {
 		// Redirects are responses to this stream, not permission to replay it elsewhere.

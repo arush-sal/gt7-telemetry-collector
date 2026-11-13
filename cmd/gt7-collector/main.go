@@ -25,19 +25,43 @@ import (
 )
 
 type config struct {
-	ps5, rtps, rawDumpDir, logLevel          string
-	recvPort, sendPort, rawBuffer, pubBuffer int
-	heartbeat                                time.Duration
+	ps5, rtps, rtpsToken, rawDumpDir, logLevel string
+	recvPort, sendPort, rawBuffer, pubBuffer   int
+	heartbeat                                  time.Duration
 }
 
 // parseFlags validates configuration before any resources are opened.
-func parseFlags(args []string) (config, error) {
+func parseFlags(args []string) (_ config, err error) {
 	var c config
+	envToken := os.Getenv("GARAGE_INGEST_TOKEN")
+	tokens := []string{envToken}
+	for i, arg := range args {
+		if arg == "--rtps-token" && i+1 < len(args) {
+			tokens = append(tokens, args[i+1])
+		} else if strings.HasPrefix(arg, "--rtps-token=") {
+			tokens = append(tokens, strings.TrimPrefix(arg, "--rtps-token="))
+		}
+	}
+	defer func() {
+		if err == nil {
+			return
+		}
+		message := err.Error()
+		for _, token := range tokens {
+			if token != "" {
+				message = strings.ReplaceAll(message, token, "[REDACTED]")
+			}
+		}
+		if message != err.Error() {
+			err = errors.New(message)
+		}
+	}()
 	fs := pflag.NewFlagSet("gt7-collector", pflag.ContinueOnError)
 	fs.StringVar(&c.ps5, "ps5", "", "PS5 IP address (required)")
 	// Defaults mirror backend/internal/config/config.go (LoadBackend); --rtps and --pub-buffer use the
 	// removed cmd/collector's rtps.addr and live_buffer.size defaults (backend 91a6668^).
 	fs.StringVar(&c.rtps, "rtps", "localhost:50051", "RTPS target: host:port, grpc://host:port, unix:///path.sock, or http(s)://host/path")
+	fs.StringVar(&c.rtpsToken, "rtps-token", "", "ingest bearer token (empty uses GARAGE_INGEST_TOKEN; prefer env to keep it out of ps)")
 	fs.IntVar(&c.recvPort, "recv-port", 33740, "UDP receive port")
 	fs.IntVar(&c.sendPort, "send-port", 33739, "UDP heartbeat destination port")
 	fs.DurationVar(&c.heartbeat, "heartbeat", time.Second, "heartbeat interval")
@@ -47,6 +71,9 @@ func parseFlags(args []string) (config, error) {
 	fs.StringVar(&c.logLevel, "log-level", "info", "log level: debug|info|warn|error")
 	if err := fs.Parse(args); err != nil {
 		return config{}, err
+	}
+	if c.rtpsToken == "" {
+		c.rtpsToken = envToken
 	}
 	if fs.NArg() != 0 {
 		return config{}, fmt.Errorf("unexpected arguments: %v", fs.Args())
@@ -118,12 +145,21 @@ func newLogger(level string) (*zap.Logger, error) {
 	return c.Build()
 }
 
+// warnPlaintextToken reports when bearer credentials will travel without encryption.
+func warnPlaintextToken(cfg config, log *zap.Logger) {
+	plaintext, err := transport.Plaintext(cfg.rtps)
+	if cfg.rtpsToken != "" && err == nil && plaintext {
+		log.Warn("ingest bearer token will be sent unencrypted over a plaintext transport")
+	}
+}
+
 // run binds before starting workers, then stops receive, publish, and raw output in order.
 func run(ctx context.Context, cfg config, log *zap.Logger) error {
-	pub, err := transport.New(cfg.rtps, cfg.pubBuffer, log)
+	pub, err := transport.New(cfg.rtps, cfg.pubBuffer, log, transport.WithToken(cfg.rtpsToken))
 	if err != nil {
 		return fmt.Errorf("publisher: %w", err)
 	}
+	warnPlaintextToken(cfg, log)
 	var pipeline *ingest.Pipeline
 	// Workers start only after the pipeline and optional sink have been initialized.
 	recv, err := ingest.NewReceiver(cfg.recvPort, cfg.sendPort, cfg.ps5, cfg.heartbeat, func(p []byte, ts time.Time) { pipeline.Handle(p, ts) })

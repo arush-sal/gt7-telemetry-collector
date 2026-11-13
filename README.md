@@ -166,6 +166,7 @@ These are the flags implemented by [`parseFlags`](cmd/gt7-collector/main.go).
 | --- | --- | --- |
 | `--ps5` | Required | Literal PS5 IP address. |
 | `--rtps` | `localhost:50051` | RTPS target: bare `host:port`, `grpc://`, `unix:///`, or HTTP(S) URL. |
+| `--rtps-token` | Empty (uses `GARAGE_INGEST_TOKEN`) | Optional ingest bearer token; prefer the environment variable to keep it out of `ps`. |
 | `--recv-port` | `33740` | Local UDP receive port; 1..65535. |
 | `--send-port` | `33739` | Console UDP heartbeat destination port; 1..65535. |
 | `--heartbeat` | `1s` | Positive heartbeat interval, in Go duration syntax. |
@@ -218,6 +219,33 @@ The collector dials the consumer (push model). `--rtps` selects the transport:
 | `unix:///absolute/path.sock` | Unix stream socket; four-byte big-endian payload length followed by protobuf bytes. |
 | `http://host/path` or `https://host/path` | One long-lived streaming POST to the URL path, `Content-Type: application/x-ndjson`; one protojson frame per line. |
 
+Set `GARAGE_INGEST_TOKEN` in the collector's environment to send an optional
+bearer token without putting it in process arguments (`ps`). Alternatively, use
+`--rtps-token`; a non-empty flag overrides the environment variable, while an
+empty flag falls back to it. With neither set, no authentication header is sent.
+The consumer must validate the token to reject unauthenticated telemetry.
+
+HTTP(S) sends `Authorization: Bearer <token>` on the streaming POST. gRPC sends
+`authorization: Bearer <token>` as per-RPC metadata on each `Ingest` stream.
+The collector logs a startup warning when a token is used with `http://`,
+`grpc://` (schemes are case-insensitive), or a bare `host:port`, because these
+transports send it unencrypted.
+Use HTTPS when the token must be encrypted in transit. Unix sockets ignore the
+token and rely on socket file permissions; neither `unix:///path.sock` nor
+`unix:/path.sock` triggers this warning.
+
+HTTP(S) targets must not contain URL userinfo or any query string (including
+an empty `?`); supply credentials with `--rtps-token`, `GARAGE_INGEST_TOKEN`, or
+`WithToken` instead. Network tokens must follow RFC 6750 `b64token` syntax:
+one or more ASCII letters, digits, or `-._~+/`, followed by optional `=` padding.
+Whitespace is rejected, including leading or trailing whitespace.
+
+Library callers can use `transport.New(target, bufSize, log,
+transport.WithToken(token))`. Consumers can share `transport.AuthHeader`,
+`transport.AuthMetadataKey`, and `transport.BearerPrefix` when validating requests.
+The legacy `NewPublisher` API retains its gRPC dial options; use `New` for the
+bearer-token option.
+
 All transports share the bounded drop-oldest queue, reconnect/backoff, and one
 warning per outage. Non-2xx HTTP responses trigger reconnect; redirects are not
 followed. The consumer must read the streaming request body incrementally. For
@@ -253,6 +281,13 @@ The snippet uses `net`, `errors`, `io`, `fmt`, and
 `github.com/arush-sal/gt7-telemetry-collector/transport`.
 
 ## FAQ
+
+### Is ingest authenticated?
+
+Authentication is an optional bearer token. Configure it with
+`GARAGE_INGEST_TOKEN` or `--rtps-token`, and configure the consumer to validate it.
+Without a token, the collector sends no authentication. `unix://` relies on
+socket permissions and ignores bearer tokens. CORS is not authentication.
 
 ### Does it need a PS5?
 

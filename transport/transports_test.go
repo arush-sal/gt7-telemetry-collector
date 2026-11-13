@@ -32,9 +32,9 @@ func TestTargets(t *testing.T) {
 	}
 }
 
-func startPublisher(t *testing.T, target string) *Publisher {
+func startPublisher(t *testing.T, target string, opts ...Option) *Publisher {
 	t.Helper()
-	p, err := New(target, 8, zap.NewNop())
+	p, err := New(target, 8, zap.NewNop(), opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestUnixPublisher(t *testing.T) {
 			frames <- f
 		}
 	}()
-	p := startPublisher(t, "unix://"+path)
+	p := startPublisher(t, "unix://"+path, WithToken("ignored-token"))
 	for i := uint64(1); i <= 3; i++ {
 		p.Publish(&telemetryv1.TelemetryFrame{Sequence: i})
 	}
@@ -116,6 +116,9 @@ func TestHTTPPublisher(t *testing.T) {
 				if err := http.NewResponseController(w).EnableFullDuplex(); err != nil {
 					t.Error(err)
 					return
+				}
+				if r.Header.Get(AuthHeader) != BearerPrefix+"reconnect-token" {
+					t.Error("missing bearer token on connection attempt")
 				}
 				n := attempts.Add(1)
 				if failOnce && n == 1 {
@@ -143,7 +146,7 @@ func TestHTTPPublisher(t *testing.T) {
 				}
 			}))
 			t.Cleanup(srv.Close)
-			p := startPublisher(t, srv.URL+"/ingest")
+			p := startPublisher(t, srv.URL+"/ingest", WithToken("reconnect-token"))
 			// Reconnection must happen even when no frames are queued.
 			select {
 			case <-connected:
@@ -155,5 +158,38 @@ func TestHTTPPublisher(t *testing.T) {
 			}
 			receiveThree(t, frames)
 		})
+	}
+}
+
+func TestPlaintext(t *testing.T) {
+	for _, tt := range []struct {
+		target string
+		want   bool
+	}{
+		{"localhost:50051", true},
+		{"grpc://localhost:50051", true},
+		{"GRPC://localhost:50051", true},
+		{"http://localhost/ingest", true},
+		{"HTTP://localhost/ingest", true},
+		{"https://localhost/ingest", false},
+		{"HTTPS://localhost/ingest", false},
+		{"unix:///tmp/ingest.sock", false},
+		{"unix:/tmp/ingest.sock", false},
+		{"UNIX:/tmp/ingest.sock", false},
+	} {
+		t.Run(tt.target, func(t *testing.T) {
+			got, err := Plaintext(tt.target)
+			if err != nil || got != tt.want {
+				t.Fatalf("Plaintext = %v, %v; want %v", got, err, tt.want)
+			}
+			if _, err := New(tt.target, 1, nil); err != nil {
+				t.Fatalf("New rejected classified target: %v", err)
+			}
+		})
+	}
+	for _, target := range []string{"", "grpc://", "http://user:secret@localhost/", "http://localhost/?", "unix:relative", "ftp://localhost"} {
+		if _, err := Plaintext(target); err == nil {
+			t.Errorf("Plaintext accepted invalid target")
+		}
 	}
 }
