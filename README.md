@@ -1,5 +1,7 @@
 <div align="center">
 
+<a href="https://arush-sal.github.io/gt7-telemetry-collector/"><img src=".github/assets/logo.webp" alt="gt7-telemetry-collector logo" width="200" height="200"></a>
+
 <h1>gt7-telemetry-collector</h1>
 <p>From PS5 UDP packets to canonical telemetry frames, ready for RTPS.</p>
 
