@@ -65,36 +65,73 @@ Every message has `type`, `protocol` (always `"gt7.inputs.v1"`) and
 
 - **One owner.** The hub holds the authoritative source state
   (`waiting_for_source` -> `source_live` <-> `source_stale`) plus a
-  generation counter. `Publish` (receive goroutine) stores the last-frame
-  monotonic time and last sequence and flips `waiting`/`stale` -> `live` with
-  one CAS. A single hub monitor goroutine ticks every
-  `--ws-source-timeout / 2` and flips `live` -> `stale` when no frame arrived
-  within the timeout, recording `staleAtSequence` (the last published
-  sequence). Stale detection latency is therefore 1x-1.5x the timeout. No
-  per-frame timer resets; writers run no staleness timers.
-- **Notification.** On each transition the monitor does a non-blocking send
-  on every client's 1-slot `notify` channel (coalescing).
+  generation counter, packed into one atomic word. `Publish` (receive
+  goroutine) stores the last-frame monotonic time, then the last sequence,
+  then increments a publish counter, and flips `waiting`/`stale` -> `live`
+  with one CAS. No per-frame timer resets; writers run no staleness timers.
+- **Monitor.** A single hub goroutine (`Hub.Run`) ticks every
+  `--ws-source-timeout / 2` (at least 1ns). When the state is `live` it reads
+  the publish counter, then the last sequence, then the last-frame time (the
+  reverse of `Publish`'s write order, so the sequence it reads always belongs
+  to a frame at least that old). If no frame arrived within the timeout it
+  stores `staleAtSequence` = that sequence, then CASes `live` -> `stale`.
+  After the CAS it re-reads the publish counter: if a frame was published
+  meanwhile (that `Publish` may have seen `live` and not flipped the state),
+  it reverts to `live` and notifies nobody, so a transient stale is never
+  reported. Otherwise it notifies every client. Stale detection latency is
+  1x-1.5x the timeout.
+- **`Run` is required for staleness.** Clients can register and stream
+  before `Run` starts, but no `source_stale` is ever emitted without it.
+  After `Run` returns, the hub refuses new registrations.
+- **Notification.** On each committed `live` -> `stale` transition the
+  monitor does a non-blocking send on every client's 1-slot `notify` channel.
+  Notifies coalesce: a writer sees that *at least one* stale transition
+  happened since it last checked, not how many.
 - **`hello` race.** A connection registers its client **first**, then
   snapshots the hub state for `hello`. That snapshot is the writer's baseline
   "last state sent". A frame published between registration and the
-  snapshot is already queued and is sent after `hello`.
+  snapshot is already queued and is sent after `hello`. If the snapshot is
+  `stale`, the writer's discard cutoff (below) starts at `staleAtSequence`
+  (stored before the state can read `stale`).
 - **Writer ordering rules** (per connection, a single goroutine):
   1. `hello` is always first.
-  2. On `notify` with hub state `stale`, if the last state sent is not
-     `stale`: send `source_stale` **ahead of any queued samples** (priority),
-     then discard queued samples with `sequence <= staleAtSequence`. Those
-     samples are at least one timeout old; their loss shows up in the next
-     sample's `droppedSincePrevious`.
-  3. Before writing a sample, if the last state sent is not `source_live`,
-     send `source_live` (`first_frame` or `source_resumed`) first.
-  4. Consumers can therefore rely on: no sample follows `source_stale`
+  2. On any `notify`, handled **ahead of queued samples** (priority): raise
+     the connection's discard cutoff to `staleAtSequence` (the cutoff never
+     decreases). If the last state sent is `source_live`, send
+     `source_stale`, **even if the hub is already live again**, so a segment
+     break is preserved; not every transition is reported. If the last state
+     sent is `waiting_for_source`, send no status (the client never saw
+     live); the cutoff still applies.
+  3. Every dequeued sample with `sequence <= cutoff` is discarded **before**
+     projection or any live status. Because the cutoff is checked per sample
+     rather than by a one-off drain, a frame that a stalled `Publish`
+     enqueues after the writer handled the notify is still discarded and
+     cannot produce a false `source_resumed`. Those samples are at least one
+     timeout old; their loss shows up in the next sample's
+     `droppedSincePrevious`.
+  4. Before writing a sample, if the last state sent is not `source_live`,
+     send `source_live` (`first_frame` after `waiting_for_source`,
+     `source_resumed` after `source_stale`) first.
+  5. Consumers can therefore rely on: no sample follows `source_stale`
      without an intervening `source_live`.
-- **Benign race (documented):** a frame that arrives in the instant the
-  monitor declares stale yields `source_stale` followed immediately by
+- **Benign race (documented):** a frame that arrives just after the monitor
+  commits stale yields `source_stale` followed immediately by
   `source_live`/`source_resumed`. Consumers must treat any `source_stale` as
   a segment break regardless of duration.
+- **Non-advancing sequences.** The cutoff assumes pipeline sequences. A
+  library publisher whose sequence does not advance would have every sample
+  at or below the cutoff discarded after a stale transition.
+- **Counters (`HubStats`).** `Sent` counts every message written (`hello`,
+  `status` and `sample`). `Dropped` counts actual queue evictions (the sum of
+  per-client drops; drop-oldest is best-effort, see `Hub.Publish`).
+  `StaleDiscarded` counts samples discarded under rule 3. `ProjectErrors`
+  counts frames skipped because projection failed. `droppedSincePrevious` is
+  a sequence gap, so it covers queue evictions, stale discards and
+  projection failures; summed over a connection it is not expected to equal
+  `Dropped`.
 - Required tests: concurrent publish/timeout/connect under `-race`; stale
-  while a client has a full backlog; stale -> resume ordering.
+  while a client has a full backlog; stale -> resume ordering; a `Publish`
+  stalled past the timeout between its state flip and its enqueue.
 
 Collector shutdown is signalled with WebSocket close code `1001` and reason
 `collector_shutdown`, not with a status message. This is a deliberate

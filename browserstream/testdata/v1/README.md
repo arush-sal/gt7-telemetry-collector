@@ -14,6 +14,20 @@ directory; there is no code dependency between repositories.
   types of known fields are strict.
 - `valid/*.json` - messages that MUST pass the schema.
 - `invalid/*.json` - messages that MUST fail the schema, one defect each.
+- `transcripts/*.jsonl` - whole-connection transcripts recorded from real hub
+  runs (`hub_test.go`, `TestTranscripts`), one compact message per line in
+  send order. Every line passes the schema. Regenerate with
+  `go test ./browserstream/ -run TestTranscripts -update` and review the diff.
+  - `hello-then-samples` - source already live at connect: `hello` then
+    samples, no status.
+  - `waiting-first-frame` - `hello` (waiting), then `source_live`/`first_frame`
+    before the first sample.
+  - `drop-arithmetic` - 4-slot queue, writer paused while 12 frames arrive;
+    `droppedSincePrevious` equals the sequence gap.
+  - `stale-resume` - source goes stale with a full backlog: `source_stale`
+    goes ahead of queued samples, which are discarded; `source_resumed`
+    precedes the next sample, whose `droppedSincePrevious` counts both
+    queue evictions and the discarded backlog.
 
 Rule: every `valid/` file passes and every `invalid/` file fails.
 

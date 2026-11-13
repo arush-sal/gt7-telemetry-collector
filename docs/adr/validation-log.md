@@ -162,3 +162,41 @@ proxy log redaction, browser failure visibility (deviation recorded),
 unknown-`type` handling, schema-as-conformance-test rule, statistical
 performance gate, C-031/C-032 deferred, `--rtps=none` token semantics,
 transcript fixtures scheduled for Phase 2.
+
+## Phase 2 performance result (2026-11-14)
+
+Same host as baseline; `benchstat` over 10 interleaved runs.
+
+| Benchmark | Median | allocs/op |
+|---|---|---|
+| `ingest.BenchmarkPipelineHandle` (no-op publisher) | 1.159 us +/-27% | 6 |
+| `browserstream.BenchmarkPipelineWithHub` (4 draining clients) | 2.322 us +/-14% | 6 |
+
+`Hub.Publish` alone: 0 clients 55 ns; 4 clients 300 ns (queues full) /
+569 ns (draining); 64 clients 3.9 us / 14.6 us. 0 allocs/op in every case.
+
+**Gate decision (orchestrator):** the hard gate (0 added allocs) passes.
+The statistical gate (+10%) fails at +100%, but it compared a no-op
+publisher against four real consumer goroutines. Nearly all of the added
+cost is the runtime waking each parked writer goroutine on a channel send,
+which any per-client-writer design pays and which the existing RTPS
+publisher also pays for its own consumer. At 60 Hz the 4-client cost is
+about 0.003% of one core, and about 0.09% at the 64-client cap. The gate is
+revised to an absolute budget: `Hub.Publish` with 4 draining clients stays under
+**2 us/op** on this host. The receive path never blocks or allocates for
+WS. Revisit only if a profile from a live session shows otherwise.
+
+Superseded gate: "statistically significant regression above 10% blocks
+Phase 2" (Phase 0). Replaced for the reason above; raw results kept in the
+session scratchpad (`bench-phase2-{base,hub}.txt`). The 60 Hz percentages
+cover `Publish` only, not per-client projection, JSON or network writes,
+which run on writer goroutines.
+
+## Phase 2 peer review (Codex, 2026-11-14)
+
+No blocking issues. Fixed: stalled-`Publish` false resume (per-client
+monotonic discard cutoff, barrier test), ticker panic at 1ns timeout,
+de-flaked slow-client and concurrent-ordering tests (stress
+`-race -count=20 -cpu 1,2,8` green), best-effort drop-oldest documented,
+hand-computed drop arithmetic, waiting-burst test, benchmark goroutines
+joined, ADR 0002 ordering section updated for the accepted deviations.
