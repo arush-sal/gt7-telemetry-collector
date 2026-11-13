@@ -3,14 +3,15 @@
 <h1>gt7-telemetry-collector</h1>
 <p>From PS5 UDP packets to canonical telemetry frames, ready for RTPS.</p>
 
-[![Go 1.26](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](go.mod)
+[![Go 1.27](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)](go.mod)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue)](LICENSE)
 [![Go Reference](https://img.shields.io/badge/Go-Reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/arush-sal/gt7-telemetry-collector)
 
 <a href="#quick-start">Quick start</a> &middot;
 <a href="#how-it-works">How it works</a> &middot;
 <a href="#packages">Packages</a> &middot;
-<a href="#raw-packet-dumps">Raw packet dumps</a> &middot;
+<a href="#raw-packet-dumps-pcap">Raw packet dumps</a> &middot;
+<a href="#transports">Transports</a> &middot;
 <a href="#faq">FAQ</a> &middot;
 <a href="#license">License</a>
 
@@ -18,13 +19,14 @@
 
 A standalone Go collector and reusable library for Gran Turismo 7 telemetry.
 Receive encrypted packets from a PS5, decrypt and deduplicate them, and stream
-canonical protobuf frames to a Real Time Processing System (RTPS) over gRPC.
+canonical protobuf frames to a Real Time Processing System (RTPS) over gRPC,
+a Unix stream socket, or HTTP(S).
 Optional raw dumps preserve received bytes for debugging and offline analysis.
 
 ## Quick start
 
-Install with **Go 1.26.3 or later**, as specified in [go.mod](go.mod). The badge
-above shows the Go release series; the module requires patch version 1.26.3.
+Install with **Go 1.27.4 or later**, as specified in [go.mod](go.mod). The badge
+above shows the Go release series; the module requires patch version 1.27.4.
 
 ```sh
 go install github.com/arush-sal/gt7-telemetry-collector/cmd/gt7-collector@latest
@@ -111,11 +113,11 @@ flowchart LR
     PS5["PS5 / GT7"] -->|"UDP :33740"| Receiver["ingest.Receiver"]
     Receiver -->|"Heartbeat C to UDP :33739"| PS5
     Receiver --> Decrypt["Salsa20 decrypt"]
-    Receiver -->|"Optional raw tee"| Raw["rawsink: raw-<unix>.bin"]
+    Receiver -->|"Optional raw tee"| Raw["rawsink: raw-<unix>.pcap"]
     Decrypt --> Dedup["Dedup / gap and reset tracking"]
     Dedup --> Decode["protocol.Decode"]
     Decode --> Canonical["telemetry.ToCanonical"]
-    Canonical --> Publisher["gRPC publisher"]
+    Canonical --> Publisher["Buffered publisher"]
     Publisher --> RTPS["RTPS"]
 ```
 
@@ -127,7 +129,7 @@ can override the ports.
 
 The receive path tees encrypted bytes before validation. The pipeline rejects
 wrong-length or bad-magic packets, drops duplicates and small reorders, tracks
-session resets and gaps, and maps accepted packets to canonical frames. The gRPC
+session resets and gaps, and maps accepted packets to canonical frames. The
 publisher buffers frames, drops the oldest when full, and reconnects with backoff.
 
 INFO counter snapshots appear every 10 seconds and after shutdown: `published`,
@@ -135,7 +137,7 @@ INFO counter snapshots appear every 10 seconds and after shutdown: `published`,
 `raw_dropped`. `published` counts pipeline submissions, not server acknowledgments.
 
 On SIGINT or SIGTERM, the receiver stops first, then the publisher is canceled,
-then the raw sink drains and closes before final counters are logged. Queued gRPC
+then the raw sink drains and closes before final counters are logged. Queued
 frames are not guaranteed delivery during shutdown. Exit codes are **0** for
 cancellation, **1** for startup/runtime failures, and **2** for flag/config errors.
 
@@ -148,7 +150,7 @@ All paths below are relative to `github.com/arush-sal/gt7-telemetry-collector`.
 | [`protocol`](protocol) | Salsa20 decryption, validation, GT7 packet decoding, deduplication, and heartbeat payload. |
 | [`telemetry`](telemetry) | Maps GT7 data and capture metadata to canonical protobuf frames. |
 | [`ingest`](ingest) | UDP receiver and raw/decrypt/dedup/decode/map/publish pipeline. |
-| [`transport`](transport) | Buffered gRPC publisher with drop-oldest handling and reconnect/backoff. |
+| [`transport`](transport) | Buffered gRPC, Unix socket, and HTTP(S) publisher with drop-oldest handling and reconnect/backoff. |
 | [`rawsink`](rawsink) | Asynchronous, afero-backed raw packet dumps. |
 | [`replay`](replay) | Opens pcap/pcapng captures and feeds UDP payloads to a handler with scaled pacing. |
 | [`gt7data`](gt7data) | Car names, drivetrains, and reference-data lookups. |
@@ -163,7 +165,7 @@ These are the flags implemented by [`parseFlags`](cmd/gt7-collector/main.go).
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--ps5` | Required | Literal PS5 IP address. |
-| `--rtps` | `localhost:50051` | RTPS gRPC ingest address. |
+| `--rtps` | `localhost:50051` | RTPS target: bare `host:port`, `grpc://`, `unix:///`, or HTTP(S) URL. |
 | `--recv-port` | `33740` | Local UDP receive port; 1..65535. |
 | `--send-port` | `33739` | Console UDP heartbeat destination port; 1..65535. |
 | `--heartbeat` | `1s` | Positive heartbeat interval, in Go duration syntax. |
@@ -174,20 +176,20 @@ These are the flags implemented by [`parseFlags`](cmd/gt7-collector/main.go).
 
 Defaults match the GARAGE backend's collector configuration.
 
-## Raw packet dumps
+## Raw packet dumps (pcap)
 
-Set `--rawdump-dir` to open one **`raw-<unix>.bin`** file per run, where `<unix>` is
-the startup Unix timestamp in seconds. The directory is created if needed. The
-file has no global header; records repeat with no padding:
+Set `--rawdump-dir` to open one **`raw-<unix>.pcap`** file per run, where `<unix>`
+is the startup Unix timestamp in seconds. The directory is created if needed.
+Classic pcap with nanosecond timestamps makes dumps readable by Wireshark and
+tcpdump, replayable through the [`replay`](replay) package and RTPS
+`--replay-file`, and preserves the still-encrypted UDP wire bytes.
 
-| Offset within record | Type | Contents |
-| --- | --- | --- |
-| `0` | `uint32`, little-endian | Payload length `N`, in bytes. |
-| `4` | `int64`, little-endian | Receive timestamp, Unix nanoseconds. |
-| `12` | `N` bytes | Encrypted UDP payload as received from the wire. |
-
-The next record begins at offset `12 + N`. This is the format written by
-[`rawsink.LocalSink`](rawsink/local.go).
+Each payload has synthetic Ethernet/IPv4/UDP headers: zero MAC addresses,
+IPv4 TTL 64 with valid checksums, source PS5 IP and configured console send port,
+and destination receiver IP and receive port. An unknown local IP is recorded as
+`0.0.0.0`. These headers describe the configured endpoints, including for foreign
+packets; they are synthesized, not captured from the network. IPv4 endpoints are
+required when raw dumping is enabled.
 
 ### Why store encrypted bytes?
 
@@ -204,8 +206,51 @@ The next record begins at offset `12 + N`. This is the format written by
 Raw dumping is buffered and best effort. Overflow increments `raw_dropped`; disk
 write errors are logged. The receiver uses a 4096-byte datagram buffer, so larger
 foreign datagrams may already be truncated by the read. Two starts in the same
-directory within one second can reuse and truncate the same filename. The `replay`
-package currently reads **pcap/pcapng**, not this `.bin` container.
+directory within one second can reuse and truncate the same filename.
+
+## Transports
+
+The collector dials the consumer (push model). `--rtps` selects the transport:
+
+| Target | Wire format |
+| --- | --- |
+| `localhost:50051` or `grpc://localhost:50051` | Plaintext gRPC `Telemetry.Ingest` client stream. |
+| `unix:///absolute/path.sock` | Unix stream socket; four-byte big-endian payload length followed by protobuf bytes. |
+| `http://host/path` or `https://host/path` | One long-lived streaming POST to the URL path, `Content-Type: application/x-ndjson`; one protojson frame per line. |
+
+All transports share the bounded drop-oldest queue, reconnect/backoff, and one
+warning per outage. Non-2xx HTTP responses trigger reconnect; redirects are not
+followed. The consumer must read the streaming request body incrementally. For
+Go HTTP/1 servers that respond before consuming the body, call
+`http.NewResponseController(w).EnableFullDuplex()` before writing the response.
+A completed HTTP response ends the stream. Frames already dequeued when a send
+fails are not retried; delivery is best effort, without acknowledgments.
+
+Consumers can reuse `transport.ReadFrame` and `transport.WriteFrame` for Unix
+framing, or `transport.NewNDJSONDecoder(r).Next()` for HTTP. Each protobuf frame
+and each NDJSON line is capped at `transport.MaxFrameSize` (4 MiB, excluding the
+length prefix or newline).
+
+For a Unix connection accepted by a consumer:
+
+```go
+func consume(conn net.Conn) error {
+    defer conn.Close()
+    for {
+        frame, err := transport.ReadFrame(conn)
+        if errors.Is(err, io.EOF) {
+            return nil
+        }
+        if err != nil {
+            return err
+        }
+        fmt.Println(frame.GetSequence())
+    }
+}
+```
+
+The snippet uses `net`, `errors`, `io`, `fmt`, and
+`github.com/arush-sal/gt7-telemetry-collector/transport`.
 
 ## FAQ
 
@@ -222,7 +267,8 @@ func (s *Source) Play(ctx context.Context, recvPort uint16, speed float64,
 
 For example, `source.Play(ctx, uint16(protocol.RecvPort), 1.0, pipeline.Handle)`
 replays matching UDP payloads at their original cadence; `2.0` doubles the speed.
-The command has no replay flag; replay is available through the library.
+Use `math.Inf(1)` for maximum-speed playback. The collector command has no replay
+flag; use the library or RTPS `--replay-file`.
 
 ### Which ports and packet formats are used?
 
@@ -236,7 +282,7 @@ fixtures. See [protocol constants](protocol/constants.go).
 
 They preserve the input to the whole protocol pipeline, including failed
 packets, rather than just a decoded interpretation. See
-[Raw packet dumps](#raw-packet-dumps) for the record layout and tradeoffs.
+[Raw packet dumps](#raw-packet-dumps-pcap) for the capture format and tradeoffs.
 
 ### Is this a clean-room reimplementation?
 

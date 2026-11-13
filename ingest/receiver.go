@@ -16,7 +16,7 @@ import (
 const readBufSize = 4096
 
 // Receiver owns the UDP socket. It runs the receive loop, copies each datagram off the reused read
-// buffer, and hands it to the injected handler; concurrently it sends the "A" heartbeat that keeps
+// buffer, and hands it to the injected handler; concurrently it sends the "C" heartbeat that keeps
 // GT7 streaming. The heartbeat and receive share one socket, which net.UDPConn allows.
 type Receiver struct {
 	conn     *net.UDPConn
@@ -70,6 +70,9 @@ func (r *Receiver) SetHeartbeatInterval(d time.Duration) {
 // SetLogger attaches a logger for lifecycle and error events (not the per-packet path). Optional;
 // the zero logger is a no-op. Call before Run.
 func (r *Receiver) SetLogger(log *zap.Logger) { r.log = log }
+
+// Close releases the receive socket, including when startup fails before Run.
+func (r *Receiver) Close() error { return r.conn.Close() }
 
 // LocalAddr reports the bound receive address (useful once recvPort was 0 for an ephemeral port).
 func (r *Receiver) LocalAddr() net.Addr { return r.conn.LocalAddr() }

@@ -1,6 +1,10 @@
 package main
 
 import (
+	"context"
+	"github.com/arush-sal/gt7-telemetry-collector/replay"
+	"go.uber.org/zap"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -45,4 +49,23 @@ func TestMainExitCodes(t *testing.T) {
 	if got := mainExit(nil); got != 2 {
 		t.Errorf("missing --ps5 exit = %d, want 2", got)
 	}
+}
+
+func TestRunCreatesPCAP(t *testing.T) {
+	dir := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	cfg := config{ps5: "127.0.0.1", rtps: "localhost:50051", rawDumpDir: dir, recvPort: 0, sendPort: 33739, rawBuffer: 8, pubBuffer: 8, heartbeat: time.Second}
+	if err := run(ctx, cfg, zap.NewNop()); err != nil {
+		t.Fatal(err)
+	}
+	paths, err := filepath.Glob(filepath.Join(dir, "raw-*.pcap"))
+	if err != nil || len(paths) != 1 {
+		t.Fatalf("pcap paths: %v, %v", paths, err)
+	}
+	s, err := replay.Open(paths[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
 }

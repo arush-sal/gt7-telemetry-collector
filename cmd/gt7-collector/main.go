@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -21,8 +22,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 type config struct {
@@ -38,7 +37,7 @@ func parseFlags(args []string) (config, error) {
 	fs.StringVar(&c.ps5, "ps5", "", "PS5 IP address (required)")
 	// Defaults mirror backend/internal/config/config.go (LoadBackend); --rtps and --pub-buffer use the
 	// removed cmd/collector's rtps.addr and live_buffer.size defaults (backend 91a6668^).
-	fs.StringVar(&c.rtps, "rtps", "localhost:50051", "RTPS gRPC ingest address")
+	fs.StringVar(&c.rtps, "rtps", "localhost:50051", "RTPS target: host:port, grpc://host:port, unix:///path.sock, or http(s)://host/path")
 	fs.IntVar(&c.recvPort, "recv-port", 33740, "UDP receive port")
 	fs.IntVar(&c.sendPort, "send-port", 33739, "UDP heartbeat destination port")
 	fs.DurationVar(&c.heartbeat, "heartbeat", time.Second, "heartbeat interval")
@@ -121,10 +120,27 @@ func newLogger(level string) (*zap.Logger, error) {
 
 // run binds before starting workers, then stops receive, publish, and raw output in order.
 func run(ctx context.Context, cfg config, log *zap.Logger) error {
+	pub, err := transport.New(cfg.rtps, cfg.pubBuffer, log)
+	if err != nil {
+		return fmt.Errorf("publisher: %w", err)
+	}
+	var pipeline *ingest.Pipeline
+	// Workers start only after the pipeline and optional sink have been initialized.
+	recv, err := ingest.NewReceiver(cfg.recvPort, cfg.sendPort, cfg.ps5, cfg.heartbeat, func(p []byte, ts time.Time) { pipeline.Handle(p, ts) })
+	if err != nil {
+		return err
+	}
+	defer func() { _ = recv.Close() }()
 	var raw rawsink.RawSink
 	if cfg.rawDumpDir != "" {
-		path := filepath.Join(cfg.rawDumpDir, fmt.Sprintf("raw-%d.bin", time.Now().Unix()))
-		sink, err := rawsink.NewLocalSink(afero.NewOsFs(), path, cfg.rawBuffer)
+		path := filepath.Join(cfg.rawDumpDir, fmt.Sprintf("raw-%d.pcap", time.Now().Unix()))
+		ps5, err := netip.ParseAddr(cfg.ps5)
+		if err != nil {
+			return err
+		}
+		src := netip.AddrPortFrom(ps5, uint16(cfg.sendPort))
+		dst := recv.LocalAddr().(*net.UDPAddr).AddrPort()
+		sink, err := rawsink.NewLocalSink(afero.NewOsFs(), path, cfg.rawBuffer, src, dst)
 		if err != nil {
 			return fmt.Errorf("raw sink: %w", err)
 		}
@@ -132,18 +148,7 @@ func run(ctx context.Context, cfg config, log *zap.Logger) error {
 		raw = sink
 		log.Info("raw dump enabled", zap.String("path", path))
 	}
-	pub := transport.NewPublisher(cfg.rtps, cfg.pubBuffer, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	pub.SetLogger(log)
-	pipeline := ingest.NewPipeline(raw, pub)
-	recv, err := ingest.NewReceiver(cfg.recvPort, cfg.sendPort, cfg.ps5, cfg.heartbeat, pipeline.Handle)
-	if err != nil {
-		if raw != nil {
-			if closeErr := raw.Close(); closeErr != nil {
-				log.Warn("raw sink close", zap.Error(closeErr))
-			}
-		}
-		return err
-	}
+	pipeline = ingest.NewPipeline(raw, pub)
 	recv.SetLogger(log)
 	log.Info("collector starting", zap.String("ps5", cfg.ps5), zap.String("rtps", cfg.rtps),
 		zap.Stringer("recv_addr", recv.LocalAddr()), zap.Int("send_port", cfg.sendPort))

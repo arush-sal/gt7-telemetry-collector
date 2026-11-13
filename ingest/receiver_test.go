@@ -137,3 +137,19 @@ func TestReceiver_SetHeartbeatInterval(t *testing.T) {
 		t.Fatal("Run did not return after cancel")
 	}
 }
+
+func TestReceiverCloseReleasesSocket(t *testing.T) {
+	r, err := NewReceiver(0, 33739, "127.0.0.1", time.Second, func([]byte, time.Time) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := r.LocalAddr().(*net.UDPAddr)
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+	c, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		t.Fatalf("socket still bound: %v", err)
+	}
+	_ = c.Close()
+}

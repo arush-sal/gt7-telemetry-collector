@@ -11,32 +11,33 @@ import (
 )
 
 const (
+	// Reconnect delays start at half a second and cap at 30 seconds during an outage.
 	initialBackoff = 500 * time.Millisecond
 	maxBackoff     = 30 * time.Second
 )
 
-// Publisher streams canonical telemetry frames to the RTPS over a client-streaming gRPC RPC. It
+// Publisher streams canonical telemetry frames to a consumer over gRPC, Unix sockets, or HTTP. It
 // decouples the receive path from the network: Publish enqueues without blocking (dropping the
 // oldest frame when the buffer is full), while Run owns dialing, streaming, and reconnect/backoff.
 //
 // Publish is safe to call from exactly one producer goroutine (the receive path); it is not safe
 // for concurrent Publish callers.
 type Publisher struct {
-	addr     string
-	dialOpts []grpc.DialOption
-	ch       chan *telemetryv1.TelemetryFrame
-	dropped  atomic.Uint64
-	log      *zap.Logger
+	addr    string
+	dial    func(context.Context) (stream, error)
+	ch      chan *telemetryv1.TelemetryFrame
+	dropped atomic.Uint64
+	log     *zap.Logger
 }
 
 // NewPublisher returns a Publisher targeting addr with a bufSize-deep outbound buffer. dialOpts are
 // passed to grpc.NewClient and must include transport credentials (e.g. insecure.NewCredentials()).
 func NewPublisher(addr string, bufSize int, dialOpts ...grpc.DialOption) *Publisher {
 	return &Publisher{
-		addr:     addr,
-		dialOpts: dialOpts,
-		ch:       make(chan *telemetryv1.TelemetryFrame, bufSize),
-		log:      zap.NewNop(),
+		addr: addr,
+		dial: grpcDial(addr, dialOpts),
+		ch:   make(chan *telemetryv1.TelemetryFrame, bufSize),
+		log:  zap.NewNop(),
 	}
 }
 
@@ -121,29 +122,28 @@ func (p *Publisher) run(ctx context.Context, attempt func(context.Context) (bool
 	}
 }
 
-// streamOnce opens one Ingest stream and forwards frames until ctx is cancelled or a send fails. It
+// streamOnce opens one transport stream and forwards frames until ctx is cancelled or a send fails. It
 // reports whether at least one frame was sent (used to reset backoff).
 func (p *Publisher) streamOnce(ctx context.Context) (sent bool, err error) {
-	conn, err := grpc.NewClient(p.addr, p.dialOpts...)
+	s, err := p.dial(ctx)
 	if err != nil {
 		return false, err
 	}
-	defer func() { _ = conn.Close() }()
-
-	stream, err := telemetryv1.NewTelemetryClient(conn).Ingest(ctx)
-	if err != nil {
-		return false, err
-	}
+	defer func() { _ = s.Close() }()
 	p.log.Debug("telemetry stream opened", zap.String("addr", p.addr))
-
+	// HTTP may reject an idle streaming request before any Send occurs.
+	var failures <-chan error
+	if h, ok := s.(*httpStream); ok {
+		failures = h.result
+	}
 	for {
 		select {
 		case <-ctx.Done():
-			// Best-effort close to receive the final Ack; the error is irrelevant on shutdown.
-			_, _ = stream.CloseAndRecv()
 			return sent, ctx.Err()
+		case err := <-failures:
+			return sent, err
 		case f := <-p.ch:
-			if err := stream.Send(f); err != nil {
+			if err := s.Send(f); err != nil {
 				return sent, err
 			}
 			sent = true

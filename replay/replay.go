@@ -97,7 +97,7 @@ func (s *Source) Play(ctx context.Context, recvPort uint16, speed float64, handl
 			return fmt.Errorf("read capture: %w", err)
 		}
 		udp, _ := gopacket.NewPacket(data, linkType, gopacket.Lazy).Layer(layers.LayerTypeUDP).(*layers.UDP)
-		if udp == nil || uint16(udp.DstPort) != recvPort || len(udp.Payload) == 0 {
+		if udp == nil || uint16(udp.DstPort) != recvPort {
 			continue
 		}
 		ts := ci.Timestamp.UnixNano()
