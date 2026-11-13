@@ -1,0 +1,6 @@
+{{- /* Terminal-styled block. Inner content is emitted verbatim (no Markdown/typographer), so
+       "--flags" and quotes stay literal; only the <span class="p|c"> highlight tags are HTML. */ -}}
+<div class="gt7-terminal not-prose">
+  <div class="gt7-terminal-bar"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+  <pre>{{ .Inner | strings.TrimSpace | safeHTML }}</pre>
+</div>

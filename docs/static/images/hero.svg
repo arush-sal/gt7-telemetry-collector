@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 340" role="img" aria-label="Telemetry flowing from a PS5 into canonical frames">
+  <defs>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b1f2a"/>
+      <stop offset="1" stop-color="#11141b"/>
+    </linearGradient>
+    <linearGradient id="trace" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff8a3d"/>
+      <stop offset="1" stop-color="#ff2d55"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff5a36" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#ff5a36" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- dashboard card -->
+  <rect x="10" y="10" width="400" height="320" rx="22" fill="url(#card)"/>
+  <rect x="10.5" y="10.5" width="399" height="319" rx="21.5" fill="none" stroke="#ffffff" stroke-opacity=".08"/>
+
+  <!-- header dots + label -->
+  <circle cx="36" cy="36" r="5" fill="#ff5f57"/><circle cx="54" cy="36" r="5" fill="#febc2e"/><circle cx="72" cy="36" r="5" fill="#28c840"/>
+  <text x="96" y="40.5" font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#9aa3b2">gt7-collector · LIVE</text>
+
+  <!-- speed trace -->
+  <text x="34" y="74" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#9aa3b2" letter-spacing="1">SPEED</text>
+  <path d="M34 168 C70 160 80 92 120 96 S170 150 200 140 240 82 280 86 330 150 386 112 L386 176 L34 176 Z" fill="url(#glow)"/>
+  <path d="M34 168 C70 160 80 92 120 96 S170 150 200 140 240 82 280 86 330 150 386 112" fill="none" stroke="url(#trace)" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="34" y1="176" x2="386" y2="176" stroke="#ffffff" stroke-opacity=".08"/>
+
+  <!-- throttle / brake bars -->
+  <text x="34" y="206" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#9aa3b2" letter-spacing="1">THROTTLE</text>
+  <rect x="34" y="214" width="170" height="10" rx="5" fill="#ffffff" fill-opacity=".08"/>
+  <rect x="34" y="214" width="142" height="10" rx="5" fill="#28c840"/>
+  <text x="34" y="246" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#9aa3b2" letter-spacing="1">BRAKE</text>
+  <rect x="34" y="254" width="170" height="10" rx="5" fill="#ffffff" fill-opacity=".08"/>
+  <rect x="34" y="254" width="38" height="10" rx="5" fill="#ff2d55"/>
+
+  <!-- gauge -->
+  <g transform="translate(305 262)">
+    <path d="M-62 0a62 62 0 0 1 124 0" fill="none" stroke="#ffffff" stroke-opacity=".1" stroke-width="10" stroke-linecap="round"/>
+    <path d="M-62 0a62 62 0 0 1 100.3 -36.4" fill="none" stroke="url(#trace)" stroke-width="10" stroke-linecap="round"/>
+    <line x1="0" y1="0" x2="40" y2="-36" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+    <circle r="6" fill="#fff"/>
+    <text x="0" y="40" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="22" font-weight="700" fill="#fff">7 840</text>
+    <text x="0" y="56" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10" fill="#9aa3b2" letter-spacing="1">RPM</text>
+  </g>
+
+  <!-- frame chip -->
+  <g transform="translate(250 22)">
+    <rect width="150" height="26" rx="13" fill="#ffffff" fill-opacity=".06" stroke="#ffffff" stroke-opacity=".12"/>
+    <text x="75" y="17" text-anchor="middle" font-family="ui-monospace,Menlo,monospace" font-size="11" fill="#e6e9ef">TelemetryFrame #48211</text>
+  </g>
+</svg>

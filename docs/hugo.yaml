@@ -22,20 +22,30 @@ menu:
     - name: Documentation
       pageRef: /docs
       weight: 1
-    - name: Search
+    - name: Releases
+      url: https://github.com/arush-sal/gt7-telemetry-collector/releases
       weight: 2
+    - name: Search
+      weight: 3
       params:
         type: search
     - name: GitHub
       url: https://github.com/arush-sal/gt7-telemetry-collector
-      weight: 3
+      weight: 4
       params:
         icon: github
 
 params:
   description: Standalone Go collector and library that turns Gran Turismo 7 UDP telemetry into canonical protobuf frames.
   navbar:
-    displayLogo: false
+    displayLogo: true
+    logo:
+      path: images/logo.svg
+      width: 28
+      height: 28
+  footer:
+    displayCopyright: true
+    displayPoweredBy: true
   search:
     enable: true
     type: flexsearch
