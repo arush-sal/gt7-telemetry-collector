@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/arush-sal/gt7-telemetry-collector/browserstream/testdata/v1/schema.json",
+  "title": "gt7.inputs.v1 server-to-client message",
+  "description": "Unknown extra properties are allowed at every level: v1 consumers must ignore unknown fields.",
+  "oneOf": [
+    { "$ref": "#/$defs/hello" },
+    { "$ref": "#/$defs/sample" },
+    { "$ref": "#/$defs/status" }
+  ],
+  "$defs": {
+    "sessionId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "percentOrNull": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "number", "minimum": 0, "maximum": 100 }
+      ]
+    },
+    "hello": {
+      "type": "object",
+      "required": ["type", "protocol", "sessionId", "collectorVersion", "canonicalSchemaVersion", "capabilities", "status"],
+      "properties": {
+        "type": { "const": "hello" },
+        "protocol": { "const": "gt7.inputs.v1" },
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "collectorVersion": { "type": "string", "minLength": 1 },
+        "canonicalSchemaVersion": { "type": "integer", "minimum": 1 },
+        "capabilities": {
+          "type": "object",
+          "required": ["brake", "throttle", "steering"],
+          "properties": {
+            "brake": { "$ref": "#/$defs/percentCapability" },
+            "throttle": { "$ref": "#/$defs/percentCapability" },
+            "steering": {
+              "type": "object",
+              "required": ["available", "reason"],
+              "properties": {
+                "available": { "const": false },
+                "reason": { "const": "driver_steering_input_unverified" }
+              }
+            }
+          }
+        },
+        "status": { "enum": ["waiting_for_source", "source_live", "source_stale"] }
+      }
+    },
+    "percentCapability": {
+      "type": "object",
+      "required": ["available", "unit", "min", "max"],
+      "properties": {
+        "available": { "const": true },
+        "unit": { "const": "percent" },
+        "min": { "const": 0 },
+        "max": { "const": 100 }
+      }
+    },
+    "sample": {
+      "type": "object",
+      "required": ["type", "protocol", "sessionId", "sequence", "packageId", "source", "recvTimestamp", "sourceGap", "droppedSincePrevious", "inputs"],
+      "properties": {
+        "type": { "const": "sample" },
+        "protocol": { "const": "gt7.inputs.v1" },
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "sequence": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,19})$" },
+        "packageId": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "source": { "enum": ["LIVE", "REPLAY", "UNSPECIFIED"] },
+        "recvTimestamp": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+        },
+        "sourceGap": { "type": "boolean" },
+        "droppedSincePrevious": { "type": "integer", "minimum": 0 },
+        "inputs": {
+          "type": "object",
+          "required": ["brake", "throttle", "steering"],
+          "properties": {
+            "brake": { "$ref": "#/$defs/percentOrNull" },
+            "throttle": { "$ref": "#/$defs/percentOrNull" },
+            "steering": { "type": "null" }
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "object",
+      "required": ["type", "protocol", "sessionId", "state", "reason"],
+      "properties": {
+        "type": { "const": "status" },
+        "protocol": { "const": "gt7.inputs.v1" },
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Known v1 states: source_live (reasons first_frame, source_resumed), source_stale (reason no_accepted_frames_within_timeout). Unknown states are allowed for forward compatibility."
+        },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

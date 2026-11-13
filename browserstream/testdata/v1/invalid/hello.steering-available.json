@@ -1,0 +1,26 @@
+{
+  "type": "hello",
+  "protocol": "gt7.inputs.v1",
+  "sessionId": "4f9c2e7a1b3d5f60718293a4b5c6d7e8",
+  "collectorVersion": "v0.0.0-test",
+  "canonicalSchemaVersion": 1,
+  "capabilities": {
+    "brake": {
+      "available": true,
+      "unit": "percent",
+      "min": 0,
+      "max": 100
+    },
+    "throttle": {
+      "available": true,
+      "unit": "percent",
+      "min": 0,
+      "max": 100
+    },
+    "steering": {
+      "available": true,
+      "reason": "driver_steering_input_unverified"
+    }
+  },
+  "status": "source_live"
+}

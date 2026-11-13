@@ -1,0 +1,16 @@
+{
+  "type": "sample",
+  "protocol": "gt7.inputs.v1",
+  "sessionId": "abc",
+  "sequence": "12345",
+  "packageId": 10123,
+  "source": "LIVE",
+  "recvTimestamp": "2026-11-14T12:00:00.123456789Z",
+  "sourceGap": false,
+  "droppedSincePrevious": 0,
+  "inputs": {
+    "brake": 42.352943,
+    "throttle": 0,
+    "steering": null
+  }
+}

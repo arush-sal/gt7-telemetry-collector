@@ -1,0 +1,7 @@
+{
+  "type": "status",
+  "protocol": "gt7.inputs.v1",
+  "sessionId": "4f9c2e7a1b3d5f60718293a4b5c6d7e8",
+  "state": "source_stale",
+  "reason": "no_accepted_frames_within_timeout"
+}
