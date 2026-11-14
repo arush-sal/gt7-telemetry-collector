@@ -14,6 +14,13 @@ directory; there is no code dependency between repositories.
   types of known fields are strict.
 - `valid/*.json` - messages that MUST pass the schema.
 - `invalid/*.json` - messages that MUST fail the schema, one defect each.
+  These are emitter conformance cases: the collector must never send them.
+  They are not a list of messages a consumer must reject. Consumers apply the
+  ADR 0002 rule 6 tolerance rules instead of hard-failing on full schema
+  validation: for example, ignore a message with an unknown `type`
+  (`unknown.type.json`), and do not fail the connection on a `hello` whose
+  steering capability differs from today's (`hello.steering-available.json`);
+  whether to use steering is the consumer's decision.
 - `transcripts/*.jsonl` - whole-connection transcripts recorded from real hub
   runs (`hub_test.go`, `TestTranscripts`), one compact message per line in
   send order. Every line passes the schema. Regenerate with

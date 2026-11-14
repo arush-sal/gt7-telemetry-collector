@@ -123,6 +123,7 @@ run headless against a synthetic fixture sender (no PS5), see Phase 5.
 | Browser / version | OS | Page origin | Collector URL | Permission prompt | Result | Date |
 |---|---|---|---|---|---|---|
 | Chrome 157.0.8103.38 (headless=new) | Ubuntu 24.04.5 | `http://localhost:5173` | `ws://127.0.0.1:8765/v1/stream` | none shown (headless; not a LNA test) | PASS: connects, `ws.protocol` = `gt7.inputs.v1`, hello then samples, token mode and stale/resume and 1001 shutdown pass; non-allowlisted origin `:5174` and wrong/missing token fail with 1006 (synthetic sender, no PS5) | 2026-11-14 |
+| Chrome 158 (headless) | Linux | `http://localhost:4173` | `ws://127.0.0.1:8765/v1/stream` | none shown (headless); Permissions API reports LNA `prompt` for localhost -> 127.0.0.1 although no prompt appears | PASS (handshake only, reported by the trail-braking-trainer session; real collector v0.3.0 built from tag, `--rtps=none`, no PS5, so no samples): subprotocol `gt7.inputs.v1` negotiated, hello (`waiting_for_source`, steering reason) received, zero client sends; good token accepted, wrong/missing token rejected (collector logged token rejection); disallowed origin rejected (3 origin rejections logged) and the trainer UI showed the exact `--ws-origin` | 2026-11-14 |
 | Chrome | - | `https://<site>.pages.dev` | `ws://127.0.0.1:8765/v1/stream` | LNA | UNVERIFIED | - |
 | Chrome | - | `https://<site>.pages.dev` | `ws://192.168.x.y:8765/v1/stream` | LNA | UNVERIFIED | - |
 | Chrome | - | `https://<site>.pages.dev` | `wss://collector.example.net/v1/stream` | - | UNVERIFIED | - |
