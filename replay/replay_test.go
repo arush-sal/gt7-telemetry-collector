@@ -215,24 +215,55 @@ type countPub struct{ n int }
 
 func (c *countPub) Publish(*telemetryv1.TelemetryFrame) { c.n++ }
 
-// TestPlay_RealCapture replays a real 1.3MB type-C capture from the sibling supporting-data checkout
-// when present (it is not copied into this repo). Skipped otherwise.
-func TestPlay_RealCapture(t *testing.T) {
-	path := filepath.Join("..", "..", "..", "supporting-data", "raw-packet-captures", "type-c-capture.pcapng")
-	if _, err := os.Stat(path); err != nil {
-		t.Skipf("real capture not available: %v", err)
+// realCapture returns the named capture from GT7_CAPTURE_DIR, or else from a
+// supporting-data/raw-packet-captures or captures directory in the working directory or its
+// ancestors (main checkout or .worktrees/<name>). Captures are never copied into this repo, so it
+// skips when the file is not found.
+func realCapture(t *testing.T, name string) string {
+	t.Helper()
+	dirs := []string{os.Getenv("GT7_CAPTURE_DIR")}
+	if dirs[0] == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		dirs = nil
+		for d := wd; ; d = filepath.Dir(d) {
+			dirs = append(dirs, filepath.Join(d, "supporting-data", "raw-packet-captures"), filepath.Join(d, "captures"))
+			if filepath.Dir(d) == d {
+				break
+			}
+		}
 	}
+	for _, d := range dirs {
+		if p := filepath.Join(d, name); fileExists(p) {
+			return p
+		}
+	}
+	t.Skipf("capture %s not found; set GT7_CAPTURE_DIR to the directory holding it", name)
+	return ""
+}
+
+func fileExists(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && fi.Mode().IsRegular()
+}
+
+// TestPlay_RealCapture replays a real 1.3MB type-C capture (2907 GT7 packets) when available.
+func TestPlay_RealCapture(t *testing.T) {
+	path := realCapture(t, "type-c-capture.pcapng")
 	s, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = s.Close() }()
-	p := ingest.NewPipeline(nil, &countPub{})
-	if err := s.Play(context.Background(), 33740, 1000, p.Handle); err != nil {
+	pub := &countPub{}
+	p := ingest.NewPipeline(nil, pub)
+	if err := s.Play(context.Background(), 33740, 1e9, p.Handle); err != nil {
 		t.Fatalf("Play: %v", err)
 	}
-	if c := p.Counters(); c.Valid == 0 {
-		t.Errorf("no valid GT7 packets decoded from real capture: %+v", c)
+	if c := p.Counters(); c.Valid != 2907 || c.Published != 2907 || pub.n != 2907 {
+		t.Errorf("real capture counters %+v (publisher saw %d)", c, pub.n)
 	}
 }
 
