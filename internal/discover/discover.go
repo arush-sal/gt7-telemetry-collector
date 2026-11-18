@@ -179,7 +179,7 @@ func exchange(ctx context.Context, conn *net.UDPConn, pkts []packet, wait time.D
 	if d, ok := ctx.Deadline(); ok && d.Before(end) {
 		end = d
 	}
-	if err := conn.SetReadDeadline(end); err != nil {
+	if err := conn.SetDeadline(end); err != nil { // write deadline too: a blocked send must not outlive the step
 		return netip.Addr{}, false, errors.Join(ctx.Err(), err)
 	}
 	sendCtx, cancel := context.WithCancel(ctx)

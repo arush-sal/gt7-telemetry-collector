@@ -418,14 +418,14 @@ fixtures. See [protocol constants](protocol/constants.go).
 ### Why is my console not discovered?
 
 GT7 sends telemetry back to the address the heartbeat *appears* to come from, so
-the collector and the console must share a layer-2 network with no source NAT in
-between. Check that `ip route get <ps5-ip>` resolves through your LAN interface
+the collector must reach the console without source NAT; sharing its layer-2
+network is the reliable setup. Check that `ip route get <ps5-ip>` resolves through your LAN interface
 and not through a tunnel (Tailscale, WireGuard, VPN) or a subnet router.
 Discovery skips point-to-point and loopback interfaces for the same reason.
 Remote Play tools such as chiaki use SRCH discovery, which can see the console across
-routed or NATed paths where telemetry does not arrive; in that case discovery
+NATed paths where telemetry does not arrive; in that case discovery
 reports the console as not streaming. Passing `--ps5` does not bypass this
-requirement. `--log-level=debug` lists the targets and ignored replies.
+requirement. `--log-level=debug` logs target counts, failed sends and ignored replies.
 
 ### Why are the raw dumps still encrypted?
 
