@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var loopback = netip.MustParseAddr("127.0.0.1")
@@ -310,7 +311,7 @@ func TestFindSRCHOnly(t *testing.T) {
 	if ns.Addr != loopback || ns.Name != "Den" || ns.Type != "PS5" || ns.State != "standby" {
 		t.Fatalf("NotStreamingError = %+v", ns)
 	}
-	for _, s := range []string{"Den", "standby", "127.0.0.1", "--ps5", "GT7"} {
+	for _, s := range []string{"Den", "rest mode", "127.0.0.1", "--ps5", "GT7"} {
 		if !strings.Contains(err.Error(), s) {
 			t.Errorf("error %q missing %q", err, s)
 		}
@@ -380,5 +381,44 @@ func TestFindBindError(t *testing.T) {
 	_, err = Find(context.Background(), o)
 	if err == nil || errors.Is(err, ErrNotFound) || !strings.Contains(err.Error(), "bind") {
 		t.Fatalf("Find err = %v, want bind error", err)
+	}
+}
+
+func TestNotStreamingHint(t *testing.T) {
+	t.Parallel()
+	a := netip.MustParseAddr("172.16.1.10")
+	standby := (&NotStreamingError{Addr: a, Name: "uru", Type: "PS5", State: "standby"}).Error()
+	for _, s := range []string{"uru", "rest mode", "wake", "172.16.1.10", "--ps5"} {
+		if !strings.Contains(standby, s) {
+			t.Errorf("standby error %q lacks %q", standby, s)
+		}
+	}
+	if strings.Contains(standby, "not streaming") {
+		t.Errorf("standby error %q should not claim GT7 is merely not streaming", standby)
+	}
+	ready := (&NotStreamingError{Addr: a, Name: "uru", Type: "PS5", State: "ready"}).Error()
+	if !strings.Contains(ready, "not streaming") || strings.Contains(ready, "rest mode") {
+		t.Errorf("ready error = %q", ready)
+	}
+}
+
+func TestExchangeDeadlineSendsAreQuiet(t *testing.T) {
+	t.Parallel()
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close() }()
+	// Enough packets that pacing outlasts the 5ms step, so sends run past the deadline.
+	pkts := make([]packet, 4096)
+	for i := range pkts {
+		pkts[i] = packet{netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), 9), []byte("C")}
+	}
+	core, logs := observer.New(zap.DebugLevel)
+	if _, ok, err := exchange(context.Background(), conn, pkts, 5*time.Millisecond, func(netip.Addr, []byte) bool { return false }, zap.New(core)); ok || err != nil {
+		t.Fatalf("exchange = ok %v err %v, want timeout", ok, err)
+	}
+	if n := logs.FilterMessage("discovery send failed").Len(); n != 0 {
+		t.Errorf("%d deadline send failures logged, want 0", n)
 	}
 }

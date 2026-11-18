@@ -46,6 +46,10 @@ type NotStreamingError struct {
 }
 
 func (e *NotStreamingError) Error() string {
+	if e.State == "standby" {
+		return fmt.Sprintf("discover: found %s %q at %s in rest mode; wake the console and start GT7, or pass --ps5",
+			e.Type, e.Name, e.Addr)
+	}
 	app := ""
 	if e.App != "" {
 		app = fmt.Sprintf(", running %q", e.App)
@@ -191,7 +195,9 @@ func exchange(ctx context.Context, conn *net.UDPConn, pkts []packet, wait time.D
 				if i > 0 && i%sendBatch == 0 && !sleep(sendCtx, batchGap) {
 					return
 				}
-				if _, err := conn.WriteToUDPAddrPort(p.data, p.to); err != nil {
+				if _, err := conn.WriteToUDPAddrPort(p.data, p.to); errors.Is(err, os.ErrDeadlineExceeded) {
+					return // the step is over; the remaining sends would all fail the same way
+				} else if err != nil {
 					log.Debug("discovery send failed", zap.Stringer("to", p.to), zap.Error(err))
 				}
 			}
