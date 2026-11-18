@@ -19,6 +19,7 @@ import (
 
 	"github.com/arush-sal/gt7-telemetry-collector/browserstream"
 	"github.com/arush-sal/gt7-telemetry-collector/ingest"
+	"github.com/arush-sal/gt7-telemetry-collector/internal/discover"
 	"github.com/arush-sal/gt7-telemetry-collector/rawsink"
 	"github.com/arush-sal/gt7-telemetry-collector/transport"
 	"github.com/spf13/afero"
@@ -31,7 +32,7 @@ import (
 type config struct {
 	ps5, rtps, rtpsToken, rawDumpDir, logLevel string
 	recvPort, sendPort, rawBuffer, pubBuffer   int
-	heartbeat                                  time.Duration
+	heartbeat, discoverTimeout                 time.Duration
 	showVersion                                bool
 	ws                                         *wsConfig // nil = browser stream disabled
 }
@@ -58,7 +59,8 @@ func parseFlags(args []string) (_ config, err error) {
 	wsToken := os.Getenv("GT7_WS_TOKEN")
 	defer func() { err = redact(err, secrets(args)...) }()
 	fs := pflag.NewFlagSet("gt7-collector", pflag.ContinueOnError)
-	fs.StringVar(&c.ps5, "ps5", "", "PS5 IP address (required)")
+	fs.StringVar(&c.ps5, "ps5", "", "PS5 IP address (empty = auto-discover on local subnets)")
+	fs.DurationVar(&c.discoverTimeout, "discover-timeout", 9*time.Second, "total auto-discovery budget when --ps5 is empty (1s..5m)")
 	fs.StringVar(&c.rtps, "rtps", "localhost:50051", "RTPS target: host:port, grpc://host:port, unix:///path.sock, http(s)://host/path, or none (requires --ws-listen)")
 	fs.StringVar(&c.rtpsToken, "rtps-token", "", "ingest bearer token (empty uses INGEST_TOKEN; prefer env to keep it out of ps)")
 	fs.IntVar(&c.recvPort, "recv-port", 33740, "UDP receive port")
@@ -100,11 +102,15 @@ func parseFlags(args []string) (_ config, err error) {
 	if fs.NArg() != 0 {
 		return config{}, fmt.Errorf("unexpected arguments: %v", fs.Args())
 	}
-	if c.ps5 == "" {
-		return config{}, errors.New("--ps5 is required")
-	}
-	if net.ParseIP(c.ps5) == nil {
-		return config{}, fmt.Errorf("--ps5 must be an IP address: %q", c.ps5)
+	if c.ps5 != "" {
+		if fs.Changed("discover-timeout") {
+			return config{}, errors.New("--discover-timeout requires --ps5 to be empty (auto-discovery)")
+		}
+		if net.ParseIP(c.ps5) == nil {
+			return config{}, fmt.Errorf("--ps5 must be an IP address: %q", c.ps5)
+		}
+	} else if c.discoverTimeout < time.Second || c.discoverTimeout > 5*time.Minute {
+		return config{}, errors.New("--discover-timeout must be 1s..5m")
 	}
 	if strings.TrimSpace(c.rtps) == "" {
 		return config{}, errors.New("--rtps must not be empty")
@@ -286,6 +292,19 @@ func warnPlaintextToken(cfg config, log *zap.Logger) {
 // run binds before starting workers, then stops receive, browser stream, publish, and raw output
 // in that order.
 func run(ctx context.Context, cfg config, log *zap.Logger) error {
+	if cfg.ps5 == "" {
+		log.Info("discovering ps5 on local subnets", zap.Duration("timeout", cfg.discoverTimeout))
+		res, err := discover.Find(ctx, discover.Options{SendPort: cfg.sendPort, RecvPort: cfg.recvPort,
+			Timeout: cfg.discoverTimeout, Log: log})
+		if errors.Is(err, context.Canceled) {
+			return nil // Ctrl-C during discovery is a clean shutdown, like during the run
+		}
+		if err != nil {
+			return err
+		}
+		cfg.ps5 = res.Addr.String()
+		log.Info("ps5 discovered", zap.String("addr", cfg.ps5), zap.String("method", res.Method))
+	}
 	var outs fanout
 	var pub *transport.Publisher
 	if cfg.rtps != "none" {

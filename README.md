@@ -74,8 +74,18 @@ go install github.com/arush-sal/gt7-telemetry-collector/cmd/gt7-collector@latest
 With GT7 running on your PS5 and an RTPS telemetry ingest service available:
 
 ```sh
-gt7-collector --ps5=192.168.1.50 --rtps=localhost:50051
+gt7-collector --rtps=localhost:50051                     # auto-discover the console
+gt7-collector --ps5=192.168.1.50 --rtps=localhost:50051  # or name it explicitly
 ```
+
+Without `--ps5`, the collector looks for the console on the directly attached
+IPv4 subnets before starting: it sends the GT7 heartbeat to each subnet
+broadcast address, then to every host (wider subnets are clamped to your /24, at
+most 512 hosts, default-route subnet first), and takes the first reply that decrypts as GT7 telemetry. If
+only a PlayStation SRCH reply (the Remote Play discovery protocol) arrives, it
+exits naming the console and its state, because GT7 is not streaming. Discovery
+fails with a non-zero exit after `--discover-timeout` (default `9s`). See
+[Why is my console not discovered?](#why-is-my-console-not-discovered)
 
 Allow inbound UDP on the receive port. Add `--rawdump-dir=./rawdump` to capture
 raw packets. gRPC uses plaintext transport. `--help` lists every flag.
@@ -203,7 +213,8 @@ These are the flags implemented by [`parseFlags`](cmd/gt7-collector/main.go).
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--ps5` | Required | Literal PS5 IP address. |
+| `--ps5` | Empty (auto-discover) | Literal PS5 IP address; empty discovers the console on local subnets. |
+| `--discover-timeout` | `9s` | Total auto-discovery budget, 1s..5m; only valid without `--ps5`. |
 | `--rtps` | `localhost:50051` | RTPS target: bare `host:port`, `grpc://`, `unix:///`, HTTP(S) URL, or `none` (requires `--ws-listen`). |
 | `--rtps-token` | Empty (uses `INGEST_TOKEN`) | Optional ingest bearer token; prefer the environment variable to keep it out of `ps`. |
 | `--recv-port` | `33740` | Local UDP receive port; 1..65535. |
@@ -403,6 +414,18 @@ UDP **33739**. The receiver sends `"C"`, not `"A"`. Decryption recognizes format
 A, B, `~`, and C by packet length. Source comments mark A and C as verified against
 real captures; B and `~` constants remain documented but unverified against real
 fixtures. See [protocol constants](protocol/constants.go).
+
+### Why is my console not discovered?
+
+GT7 sends telemetry back to the address the heartbeat *appears* to come from, so
+the collector and the console must share a layer-2 network with no source NAT in
+between. Check that `ip route get <ps5-ip>` resolves through your LAN interface
+and not through a tunnel (Tailscale, WireGuard, VPN) or a subnet router.
+Discovery skips point-to-point and loopback interfaces for the same reason.
+Remote Play tools such as chiaki use SRCH discovery, which can see the console across
+routed or NATed paths where telemetry does not arrive; in that case discovery
+reports the console as not streaming. Passing `--ps5` does not bypass this
+requirement. `--log-level=debug` lists the targets and ignored replies.
 
 ### Why are the raw dumps still encrypted?
 

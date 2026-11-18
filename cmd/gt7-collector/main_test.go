@@ -24,7 +24,10 @@ func TestParseFlags(t *testing.T) {
 		args    []string
 		wantErr string
 	}{
-		{"missing ps5", []string{"--rtps=localhost:50051", "--pub-buffer=64"}, "--ps5"},
+		{"discover with ps5", []string{"--ps5=192.0.2.5", "--discover-timeout=5s"}, "--discover-timeout"},
+		{"discover timeout too short", []string{"--discover-timeout=500ms"}, "--discover-timeout"},
+		{"discover timeout too long", []string{"--discover-timeout=6m"}, "--discover-timeout"},
+		{"bad ps5", []string{"--ps5=not-an-ip"}, "--ps5"},
 		{"empty rtps", []string{"--ps5=192.0.2.5", "--rtps= "}, "--rtps"},
 		{"valid", []string{"--ps5=192.0.2.5", "--rtps=localhost:50051", "--recv-port=40000", "--send-port=40001", "--heartbeat=2s", "--rawdump-dir=captures", "--raw-buffer=32", "--pub-buffer=64", "--log-level=debug"}, ""},
 		{"bad log level", []string{"--ps5=192.0.2.5", "--rtps=localhost:50051", "--pub-buffer=64", "--log-level=bogus"}, "--log-level"},
@@ -42,7 +45,7 @@ func TestParseFlags(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := config{ps5: "192.0.2.5", rtps: "localhost:50051", recvPort: 40000, sendPort: 40001, heartbeat: 2 * time.Second, rawDumpDir: "captures", rawBuffer: 32, pubBuffer: 64, logLevel: "debug"}
+			want := config{ps5: "192.0.2.5", rtps: "localhost:50051", recvPort: 40000, sendPort: 40001, heartbeat: 2 * time.Second, rawDumpDir: "captures", rawBuffer: 32, pubBuffer: 64, logLevel: "debug", discoverTimeout: 9 * time.Second}
 			if got != want {
 				t.Fatalf("config = %+v, want %+v", got, want)
 			}
@@ -54,8 +57,25 @@ func TestMainExitCodes(t *testing.T) {
 	if got := mainExit([]string{"--help"}); got != 0 {
 		t.Errorf("--help exit = %d, want 0", got)
 	}
-	if got := mainExit(nil); got != 2 {
-		t.Errorf("missing --ps5 exit = %d, want 2", got)
+	if got := mainExit([]string{"--discover-timeout=0s"}); got != 2 {
+		t.Errorf("bad --discover-timeout exit = %d, want 2", got)
+	}
+}
+
+func TestParseFlagsDiscovery(t *testing.T) {
+	t.Setenv("INGEST_TOKEN", "")
+	for _, args := range [][]string{nil, {"--discover-timeout=1s"}, {"--discover-timeout=5m"}} {
+		c, err := parseFlags(args)
+		if err != nil {
+			t.Fatalf("parseFlags(%v): %v", args, err)
+		}
+		if c.ps5 != "" {
+			t.Fatalf("parseFlags(%v) ps5 = %q, want empty (auto-discover)", args, c.ps5)
+		}
+	}
+	c, err := parseFlags(nil)
+	if err != nil || c.discoverTimeout != 9*time.Second {
+		t.Fatalf("default discover timeout = %v, %v; want 9s", c.discoverTimeout, err)
 	}
 }
 
@@ -181,5 +201,22 @@ func TestVersionFlag(t *testing.T) {
 		if !strings.Contains(string(out), want) {
 			t.Errorf("--version output %q missing %q", out, want)
 		}
+	}
+}
+
+func TestRunDiscoveryCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Find must return before sending anything
+	core, logs := observer.New(zap.InfoLevel)
+	cfg := config{rtps: "localhost:50051", recvPort: 0, sendPort: 33739, rawBuffer: 8, pubBuffer: 8, heartbeat: time.Second, discoverTimeout: time.Minute}
+	start := time.Now()
+	if err := run(ctx, cfg, zap.New(core)); err != nil {
+		t.Fatalf("run = %v, want nil on cancel during discovery", err)
+	}
+	if el := time.Since(start); el > 5*time.Second {
+		t.Fatalf("run took %v", el)
+	}
+	if logs.FilterMessage("collector starting").Len() != 0 {
+		t.Fatal("collector started without a discovered console")
 	}
 }
